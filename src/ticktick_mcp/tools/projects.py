@@ -193,3 +193,108 @@ def register(mcp: FastMCP) -> None:
         pid = await _resolve_project_id(client, project)
         await client.v1_delete(f"/project/{pid}")
         return f"Project {project} deleted"
+
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        }
+    )
+    async def list_columns(
+        ctx: Context,
+        project: str,
+    ) -> list[dict[str, Any]]:
+        """List all Kanban columns (sections) in a project.
+
+        Returns column IDs, names, and sort orders. Only meaningful for
+        projects in kanban view mode.
+
+        Args:
+            project: Project name or ID. Supports fuzzy matching.
+        """
+        client = _get_client(ctx)
+        pid = await _resolve_project_id(client, project)
+        data = await client.v1_get(f"/project/{pid}/data")
+        columns = data.get("columns", [])
+        return [{"id": c["id"], "name": c.get("name", ""), "sortOrder": c.get("sortOrder", 0)} for c in columns]
+
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": False,
+            "openWorldHint": True,
+        }
+    )
+    async def add_column(
+        ctx: Context,
+        project: str,
+        name: str,
+    ) -> dict[str, Any]:
+        """Add a new Kanban column (section) to a project.
+
+        The project should be in kanban view mode.
+
+        Args:
+            project: Project name or ID. Supports fuzzy matching.
+            name: Name for the new column.
+        """
+        client = _get_client(ctx)
+        pid = await _resolve_project_id(client, project)
+        body = {"projectId": pid, "name": name}
+        return await client.v1_post(f"/column", body)
+
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        }
+    )
+    async def rename_column(
+        ctx: Context,
+        project: str,
+        column_id: str,
+        name: str,
+    ) -> dict[str, Any]:
+        """Rename a Kanban column (section).
+
+        Args:
+            project: Project name or ID. Supports fuzzy matching.
+            column_id: The column ID to rename. Use list_columns to get IDs.
+            name: New name for the column.
+        """
+        client = _get_client(ctx)
+        pid = await _resolve_project_id(client, project)
+        body = {"projectId": pid, "name": name}
+        return await client.v1_post(f"/column/{column_id}", body)
+
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        }
+    )
+    async def delete_column(
+        ctx: Context,
+        project: str,
+        column_id: str,
+    ) -> str:
+        """Delete a Kanban column (section) from a project.
+
+        Tasks in the column are NOT deleted — they become unassigned.
+        This action cannot be undone.
+
+        Args:
+            project: Project name or ID. Supports fuzzy matching.
+            column_id: The column ID to delete. Use list_columns to get IDs.
+        """
+        client = _get_client(ctx)
+        await _resolve_project_id(client, project)
+        await client.v1_delete(f"/column/{column_id}")
+        return f"Column {column_id} deleted"

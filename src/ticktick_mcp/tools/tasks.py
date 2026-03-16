@@ -252,6 +252,7 @@ def register(mcp: FastMCP) -> None:
         clear_due: bool = False,
         clear_start: bool = False,
         timezone: str | None = None,
+        column_id: str | None = None,
     ) -> dict[str, Any]:
         """Update an existing task.
 
@@ -270,6 +271,7 @@ def register(mcp: FastMCP) -> None:
             clear_due: Set to true to remove the due date.
             clear_start: Set to true to remove the start date.
             timezone: IANA timezone for date interpretation.
+            column_id: Move task to a Kanban column (section) by its ID. Use list_columns to get IDs.
         """
         client = _get_client(ctx)
         pid = await _resolve_project_id(client, project)
@@ -305,6 +307,9 @@ def register(mcp: FastMCP) -> None:
 
         if timezone:
             body["timeZone"] = timezone
+
+        if column_id is not None:
+            body["columnId"] = column_id
 
         return await client.v1_post(f"/task/{task_id}", body)
 
