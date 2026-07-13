@@ -90,9 +90,9 @@ def register(mcp: FastMCP) -> None:
         """
         client = _get_client(ctx)
         ids = []
-        for f in folders:
-            fid, _ = await _resolve_folder_id(client, f)
-            ids.append(fid)
+        for name_or_id in folders:
+            folder_id, _ = await _resolve_folder_id(client, name_or_id)
+            ids.append(folder_id)
         await client.v2_post("/batch/projectGroup", {"delete": ids})
         return f"Deleted {len(ids)} folder(s)"
 
@@ -116,8 +116,8 @@ def register(mcp: FastMCP) -> None:
             new_name: New folder name.
         """
         client = _get_client(ctx)
-        fid, etag = await _resolve_folder_id(client, folder)
+        folder_id, etag = await _resolve_folder_id(client, folder)
         return await client.v2_post(
             "/batch/projectGroup",
-            {"update": [{"id": fid, "etag": etag, "name": new_name, "listType": "group"}]},
+            {"update": [{"id": folder_id, "etag": etag, "name": new_name, "listType": "group"}]},
         )

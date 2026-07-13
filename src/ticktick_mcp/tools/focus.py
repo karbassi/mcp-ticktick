@@ -9,16 +9,24 @@ from fastmcp.exceptions import ToolError
 
 from ticktick_mcp.client import TickTickClient
 
+_MS_PER_DAY = 86_400_000
+
 
 def _get_client(ctx: Context) -> TickTickClient:
     return ctx.request_context.lifespan_context["client"]  # type: ignore[union-attr]
 
 
 def _generate_focus_id() -> str:
-    """Generate a time-based hex ID for focus sessions."""
+    """Mint a client-side ID for a focus record.
+
+    TickTick expects the client to supply the record's ID rather than assigning
+    one server-side. It only needs to be unique per creation, so the current
+    millisecond plus a derived tail is plenty — collisions would require two
+    saves within the same millisecond.
+    """
     ms = int(time.time() * 1000)
-    seed = ms ^ 0xDEAD_BEEF_CAFE_BABE
-    return f"{ms:x}{seed & 0xFFFFFFFF:08x}"
+    tail = ms ^ 0xDEAD_BEEF_CAFE_BABE
+    return f"{ms:x}{tail & 0xFFFFFFFF:08x}"
 
 
 def _to_iso(dt: datetime) -> str:
@@ -87,7 +95,9 @@ def register(mcp: FastMCP) -> None:
         from ticktick_mcp.dates import date_to_epoch_ms
 
         from_ms = date_to_epoch_ms(from_date)
-        to_ms = date_to_epoch_ms(to_date) + 86400000 - 1  # End of day
+        # date_to_epoch_ms returns midnight; extend to the day's last millisecond
+        # so the range covers all of to_date, not just its opening instant.
+        to_ms = date_to_epoch_ms(to_date) + _MS_PER_DAY - 1
         return await client.v2_get(f"/pomodoros?from={from_ms}&to={to_ms}")
 
     @mcp.tool(

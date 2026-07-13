@@ -23,21 +23,25 @@ USER_AGENT = (
 
 
 def generate_device_id() -> str:
-    """Generate a device ID matching the TickTick web client format.
+    """Fabricate a device ID shaped like the TickTick web client's.
 
-    Format: "6490" prefix + 20 random hex characters, generated via LCG.
+    The v2 API's ``x-device`` header must carry an ID in the web client's
+    "6490" + 20-hex-digit form, or the server treats the session as untrusted.
+    The value only has to look plausible and stay stable for the session, so a
+    cheap LCG seeded on the clock is sufficient — no cryptographic randomness
+    is warranted here.
     """
     state = time.time_ns()
-    chars: list[str] = []
+    hex_digits: list[str] = []
     for _ in range(20):
         state = (state * 6364136223846793005 + 1442695040888963407) & 0xFFFFFFFFFFFFFFFF
-        nibble = (state >> 33) & 0xF
-        chars.append(f"{nibble:x}")
-    return "6490" + "".join(chars)
+        # Sample a middle bit range; the low bits of an LCG are notoriously non-random.
+        hex_digits.append(f"{(state >> 33) & 0xF:x}")
+    return "6490" + "".join(hex_digits)
 
 
 def x_device_header(device_id: str) -> str:
-    """Build the x-device header JSON string."""
+    """Serialize the ``x-device`` header the v2 API uses to identify the client."""
     return json.dumps(
         {
             "platform": "web",

@@ -68,12 +68,12 @@ def register(mcp: FastMCP) -> None:
             sort_type: Sort type for filter results (e.g. "dueDate", "priority").
         """
         client = _get_client(ctx)
-        f: dict[str, Any] = {"name": name}
+        payload: dict[str, Any] = {"name": name}
         if rule is not None:
-            f["rule"] = rule
+            payload["rule"] = rule
         if sort_type is not None:
-            f["sortType"] = sort_type
-        return await client.v2_post("/batch/filter", {"add": [f]})
+            payload["sortType"] = sort_type
+        return await client.v2_post("/batch/filter", {"add": [payload]})
 
     @mcp.tool(
         annotations={
@@ -101,8 +101,8 @@ def register(mcp: FastMCP) -> None:
             sort_type: New sort type.
         """
         client = _get_client(ctx)
-        fid, etag = await _resolve_filter(client, filter_name)
-        update: dict[str, Any] = {"id": fid, "etag": etag}
+        filter_id, etag = await _resolve_filter(client, filter_name)
+        update: dict[str, Any] = {"id": filter_id, "etag": etag}
         if name is not None:
             update["name"] = name
         if rule is not None:
@@ -130,8 +130,8 @@ def register(mcp: FastMCP) -> None:
         """
         client = _get_client(ctx)
         ids = []
-        for f in filters:
-            fid, _ = await _resolve_filter(client, f)
-            ids.append(fid)
+        for name_or_id in filters:
+            filter_id, _ = await _resolve_filter(client, name_or_id)
+            ids.append(filter_id)
         await client.v2_post("/batch/filter", {"delete": ids})
         return f"Deleted {len(ids)} filter(s)"

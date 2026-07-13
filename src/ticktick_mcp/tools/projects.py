@@ -17,8 +17,15 @@ def _get_client(ctx: Context) -> TickTickClient:
 
 
 async def _resolve_project_id(client: TickTickClient, name_or_id: str) -> str:
+    """Turn a user-supplied project reference into a project ID.
+
+    The inbox needs its own path because it is not returned by ``/project`` and
+    its ID is account-specific rather than a stable constant.
+    """
     if name_or_id.lower() == "inbox":
         return await _get_inbox_id(client)
+    # An already-resolved inbox ID has the form "inbox<digits>"; pass it through
+    # rather than trying (and failing) to match it against the project list.
     if name_or_id.startswith("inbox") and name_or_id[5:].isdigit():
         return name_or_id
     projects = await client.v1_get("/project")
@@ -27,14 +34,23 @@ async def _resolve_project_id(client: TickTickClient, name_or_id: str) -> str:
 
 
 async def _get_inbox_id(client: TickTickClient) -> str:
+    """Discover this account's inbox project ID.
+
+    The v1 API exposes no endpoint that returns the inbox ID, so we provoke it:
+    a freshly created task lands in the inbox by default and reports its
+    ``projectId``. The probe task is then deleted so it leaves no trace. The ID
+    is stable per account, so cache it for the client's lifetime.
+    """
     if client._inbox_project_id:
         return client._inbox_project_id
-    task = await client.v1_post("/task", {"title": "__inbox_probe__"})
-    inbox_id = task.get("projectId")
+    probe_task = await client.v1_post("/task", {"title": "__inbox_probe__"})
+    inbox_id = probe_task.get("projectId")
     if not inbox_id:
         raise ToolError("Could not discover inbox project ID")
+    # Best-effort cleanup: a leftover probe task is harmless, so don't fail the
+    # caller's request if the delete doesn't go through.
     with contextlib.suppress(Exception):
-        await client.v1_delete(f"/project/{inbox_id}/task/{task['id']}")
+        await client.v1_delete(f"/project/{inbox_id}/task/{probe_task['id']}")
     client._inbox_project_id = inbox_id
     return inbox_id
 
@@ -88,8 +104,8 @@ def register(mcp: FastMCP) -> None:
                 By default the icon is stripped (e.g. "📖Study" -> "Study").
         """
         client = _get_client(ctx)
-        pid = await _resolve_project_id(client, project)
-        result = await client.v1_get(f"/project/{pid}")
+        project_id = await _resolve_project_id(client, project)
+        result = await client.v1_get(f"/project/{project_id}")
         return result if include_icons else clean_project(result)
 
     @mcp.tool(
@@ -163,8 +179,8 @@ def register(mcp: FastMCP) -> None:
             remove_folder: Set to true to remove the project from its folder.
         """
         client = _get_client(ctx)
-        pid = await _resolve_project_id(client, project)
-        body: dict[str, Any] = {"id": pid}
+        project_id = await _resolve_project_id(client, project)
+        body: dict[str, Any] = {"id": project_id}
 
         if name is not None:
             body["name"] = name
@@ -180,7 +196,7 @@ def register(mcp: FastMCP) -> None:
             folder_id, _ = await _resolve_folder_id(client, folder)
             body["groupId"] = folder_id
 
-        return await client.v1_post(f"/project/{pid}", body)
+        return await client.v1_post(f"/project/{project_id}", body)
 
     @mcp.tool(
         annotations={
@@ -202,6 +218,6 @@ def register(mcp: FastMCP) -> None:
             project: Project name or ID to delete.
         """
         client = _get_client(ctx)
-        pid = await _resolve_project_id(client, project)
-        await client.v1_delete(f"/project/{pid}")
+        project_id = await _resolve_project_id(client, project)
+        await client.v1_delete(f"/project/{project_id}")
         return f"Project {project} deleted"

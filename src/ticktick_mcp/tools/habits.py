@@ -8,7 +8,7 @@ from fastmcp.exceptions import ToolError
 from ticktick_mcp.client import TickTickClient
 from ticktick_mcp.dates import date_to_stamp
 from ticktick_mcp.models import Habit, HabitSection
-from ticktick_mcp.resolve import resolve_name_with_etag
+from ticktick_mcp.resolve import _looks_like_id, resolve_name_with_etag
 
 
 def _get_client(ctx: Context) -> TickTickClient:
@@ -34,8 +34,9 @@ async def _resolve_section(client: TickTickClient, name_or_id: str) -> tuple[str
     sections = await client.v2_get("/habitSections")
     parsed = [HabitSection(**s) for s in sections]
 
-    # Check hex ID
-    if len(name_or_id) >= 20 and all(c in "0123456789abcdefABCDEF" for c in name_or_id):
+    # This mirrors resolve_name but returns the section's name (not an etag),
+    # which the batch endpoints need — so it can't reuse resolve_name_with_etag.
+    if _looks_like_id(name_or_id):
         for s in parsed:
             if s.id == name_or_id:
                 return s.id, s.name
@@ -110,8 +111,8 @@ def register(mcp: FastMCP) -> None:
         if unit is not None:
             habit["unit"] = unit
         if section:
-            sid, _ = await _resolve_section(client, section)
-            habit["sectionId"] = sid
+            section_id, _ = await _resolve_section(client, section)
+            habit["sectionId"] = section_id
         if repeat_rule is not None:
             habit["repeatRule"] = repeat_rule
         if color is not None:
@@ -150,8 +151,8 @@ def register(mcp: FastMCP) -> None:
             color: New hex color code.
         """
         client = _get_client(ctx)
-        hid, etag = await _resolve_habit(client, habit)
-        update: dict[str, Any] = {"id": hid, "etag": etag}
+        habit_id, etag = await _resolve_habit(client, habit)
+        update: dict[str, Any] = {"id": habit_id, "etag": etag}
         if name is not None:
             update["name"] = name
         if goal is not None:
@@ -159,8 +160,8 @@ def register(mcp: FastMCP) -> None:
         if unit is not None:
             update["unit"] = unit
         if section:
-            sid, _ = await _resolve_section(client, section)
-            update["sectionId"] = sid
+            section_id, _ = await _resolve_section(client, section)
+            update["sectionId"] = section_id
         if repeat_rule is not None:
             update["repeatRule"] = repeat_rule
         if color is not None:
@@ -186,9 +187,9 @@ def register(mcp: FastMCP) -> None:
         """
         client = _get_client(ctx)
         ids = []
-        for h in habits:
-            hid, _ = await _resolve_habit(client, h)
-            ids.append(hid)
+        for name_or_id in habits:
+            habit_id, _ = await _resolve_habit(client, name_or_id)
+            ids.append(habit_id)
         await client.v2_post("/habits/batch", {"delete": ids})
         return f"Deleted {len(ids)} habit(s)"
 
@@ -217,11 +218,11 @@ def register(mcp: FastMCP) -> None:
             value: Check-in value. Default: 1.0 (done for Boolean habits).
         """
         client = _get_client(ctx)
-        hid, _ = await _resolve_habit(client, habit)
+        habit_id, _ = await _resolve_habit(client, habit)
         stamp = date_to_stamp(date)
         return await client.v2_post(
             "/habitCheckins/batch",
-            {"add": [{"habitId": hid, "checkinStamp": stamp, "value": value, "status": 0}]},
+            {"add": [{"habitId": habit_id, "checkinStamp": stamp, "value": value, "status": 0}]},
         )
 
     @mcp.tool(
@@ -245,9 +246,9 @@ def register(mcp: FastMCP) -> None:
         """
         client = _get_client(ctx)
         ids = []
-        for h in habits:
-            hid, _ = await _resolve_habit(client, h)
-            ids.append(hid)
+        for name_or_id in habits:
+            habit_id, _ = await _resolve_habit(client, name_or_id)
+            ids.append(habit_id)
         stamp = date_to_stamp(after)
         return await client.v2_post(
             "/habitCheckins/query",
@@ -275,9 +276,9 @@ def register(mcp: FastMCP) -> None:
         """
         client = _get_client(ctx)
         updates = []
-        for h in habits:
-            hid, etag = await _resolve_habit(client, h)
-            updates.append({"id": hid, "etag": etag, "status": 1})
+        for name_or_id in habits:
+            habit_id, etag = await _resolve_habit(client, name_or_id)
+            updates.append({"id": habit_id, "etag": etag, "status": 1})
         return await client.v2_post("/habits/batch", {"update": updates})
 
     @mcp.tool(
@@ -322,8 +323,8 @@ def register(mcp: FastMCP) -> None:
                 raise ToolError("'sections' is required for action='delete'")
             ids = []
             for s in sections:
-                sid, _ = await _resolve_section(client, s)
-                ids.append(sid)
+                section_id, _ = await _resolve_section(client, s)
+                ids.append(section_id)
             await client.v2_post("/habitSections/batch", {"delete": ids})
             return f"Deleted {len(ids)} section(s)"
 
@@ -332,10 +333,10 @@ def register(mcp: FastMCP) -> None:
                 raise ToolError("'section' is required for action='rename'")
             if not new_name:
                 raise ToolError("'new_name' is required for action='rename'")
-            sid, _ = await _resolve_section(client, section)
+            section_id, _ = await _resolve_section(client, section)
             return await client.v2_post(
                 "/habitSections/batch",
-                {"update": [{"id": sid, "name": new_name}]},
+                {"update": [{"id": section_id, "name": new_name}]},
             )
 
         raise ToolError(f"Invalid action '{action}'. Use: list, add, delete, rename")
