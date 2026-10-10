@@ -233,6 +233,24 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 
 </details>
 
+## Shared HTTP server
+
+By default every client starts its own stdio process. To run one long-lived server that many clients share:
+
+```bash
+TICKTICK_MCP_TRANSPORT=http TICKTICK_MCP_PORT=8502 mcp-ticktick
+```
+
+```json
+{
+  "mcpServers": {
+    "ticktick": { "type": "http", "url": "http://127.0.0.1:8502/mcp" }
+  }
+}
+```
+
+The endpoint has no auth of its own, so the server only binds to loopback (`TICKTICK_MCP_HOST` must be `127.0.0.1`, `localhost`, or `::1`). It always turns on FastMCP's Host/Origin (DNS-rebinding) protection, which FastMCP leaves off by default. To reach it from another machine, put a reverse proxy you control in front and add the proxy's hostname to `FASTMCP_HTTP_ALLOWED_HOSTS`, e.g. `FASTMCP_HTTP_ALLOWED_HOSTS='["mcp.example.com"]'`.
+
 ## Authentication
 
 You need a TickTick [OAuth app](https://developer.ticktick.com/manage) (free to create).
