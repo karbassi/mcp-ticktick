@@ -5,7 +5,6 @@ from typing import Any
 from fastmcp import Context, FastMCP
 
 from ticktick_mcp.client import TickTickClient
-from ticktick_mcp.models import Filter
 from ticktick_mcp.resolve import resolve_name_with_etag
 
 
@@ -13,18 +12,28 @@ def _get_client(ctx: Context) -> TickTickClient:
     return ctx.request_context.lifespan_context["client"]  # type: ignore[union-attr]
 
 
-async def _resolve_filter(client: TickTickClient, name_or_id: str) -> tuple[str, str]:
-    """Resolve a filter name/ID to (id, etag)."""
+async def _get_filter(client: TickTickClient, name_or_id: str) -> dict[str, Any]:
+    """Keep the full server representation, including unknown and nullable fields."""
     data = await client.batch_check()
-    filters = [Filter(**f) for f in data.get("filters") or []]
-    return resolve_name_with_etag(
+    filters = data.get("filters") or []
+    fid, _ = resolve_name_with_etag(
         name_or_id,
         filters,
-        lambda f: f.name,
-        lambda f: f.id,
-        lambda f: f.etag or "",
+        lambda f: f.get("name") or "",
+        lambda f: f["id"],
+        lambda f: f.get("etag") or "",
         "filter",
     )
+    for f in filters:
+        if f["id"] == fid:
+            return f
+    raise ValueError(f"No filter found matching '{name_or_id}'")
+
+
+async def _resolve_filter(client: TickTickClient, name_or_id: str) -> tuple[str, str]:
+    """Resolve a stored filter name/ID to (id, etag)."""
+    f = await _get_filter(client, name_or_id)
+    return f["id"], f.get("etag") or ""
 
 
 def register(mcp: FastMCP) -> None:
@@ -101,8 +110,8 @@ def register(mcp: FastMCP) -> None:
             sort_type: New sort type.
         """
         client = _get_client(ctx)
-        fid, etag = await _resolve_filter(client, filter_name)
-        update: dict[str, Any] = {"id": fid, "etag": etag}
+        # /batch/filter replaces omitted fields; it is not a merge-patch API.
+        update = (await _get_filter(client, filter_name)).copy()
         if name is not None:
             update["name"] = name
         if rule is not None:

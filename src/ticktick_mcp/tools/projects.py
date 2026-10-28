@@ -168,7 +168,17 @@ def register(mcp: FastMCP) -> None:
             folder_id, _ = await _resolve_folder_id(client, folder)
             body["groupId"] = folder_id
 
-        return await client.v1_post(f"/project/{pid}", body)
+        result = await client.v1_post(f"/project/{pid}", body)
+        if remove_folder:
+            stored = await client.v1_get(f"/project/{pid}")
+            if "groupId" not in stored or stored["groupId"] not in (None, "", "NONE"):
+                raise ToolError(
+                    "Could not verify folder removal: the saved project still has a folder "
+                    "or its folder assignment is unavailable. Do not retry blindly; "
+                    "inspect the saved project or use the TickTick UI."
+                )
+            return stored
+        return result
 
     @mcp.tool(
         annotations={
