@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-from tests.helpers import body, call_tool
+from tests.helpers import body, call_tool, result_data
 from ticktick_mcp.client import V1_BASE, V2_BASE
 
 GROUPS = [
@@ -27,7 +27,7 @@ class TestListFolders:
         result = await call_tool("list_folders", {})
         assert groups.called
         assert not v2.called
-        assert [g["name"] for g in result.structured_content["result"]] == ["Home", "Work"]
+        assert [g["name"] for g in result_data(result)] == ["Home", "Work"]
 
 
 class TestAddFolder:

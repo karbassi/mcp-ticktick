@@ -5,17 +5,14 @@ import json
 import httpx
 import pytest
 import respx
-from fastmcp import Client
 
-from tests.helpers import body, call_tool
+from tests.helpers import body, call_tool, result_data
 from ticktick_mcp.client import V1_BASE, V2_BASE, TickTickClient
 
 
 class TestListTags:
     @pytest.mark.anyio
     async def test_list_uses_v1(self, env_vars, mock_api: respx.MockRouter):
-        from ticktick_mcp.server import mcp
-
         v1 = mock_api.get(f"{V1_BASE}/tag").mock(
             return_value=httpx.Response(
                 200,
@@ -26,11 +23,10 @@ class TestListTags:
             )
         )
         v2 = mock_api.get(f"{V2_BASE}/tags")
-        async with Client(mcp) as c:
-            result = await c.call_tool("list_tags", {})
+        result = await call_tool("list_tags", {})
         assert v1.called
         assert not v2.called
-        assert [t["name"] for t in result.structured_content["result"]] == ["work", "personal"]
+        assert [t["name"] for t in result_data(result)] == ["work", "personal"]
 
 
 class TestAddTags:
