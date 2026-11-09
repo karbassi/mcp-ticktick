@@ -15,6 +15,9 @@
 - `add_folder` uses `POST /open/v1/project/group` and returns the new folder instead of an `id2etag` map. (#22)
 - `rename_folder` uses `POST /open/v1/project/group/{id}`; no etag needed. (#23)
 - `delete_folders` uses `DELETE /open/v1/project/group/{id}`, one call per folder. As before, projects inside are ungrouped, not deleted (verified live). (#24)
+- `focus_log` uses `GET /open/v1/focus`. v1 needs a focus type, so it queries both pomodoro and stopwatch records and splits long ranges into 30-day chunks to fit the v1 limit. (#31)
+- `focus_save` uses `POST /open/v1/focus`. The server assigns the record ID; a linked task is sent as `taskId`. (#32)
+- `focus_stats`, `focus_timeline`, and `focus_status` stay on v2: there is no official endpoint.
 - Add optional shared HTTP transport: `TICKTICK_MCP_TRANSPORT=http` (with `TICKTICK_MCP_HOST`/`TICKTICK_MCP_PORT`, default `127.0.0.1:8502`) runs one server for many clients. Loopback-only, with Host/Origin (DNS-rebinding) protection always on. stdio stays the default.
 - Require FastMCP 4.1 (MCP SDK 2.3)
 

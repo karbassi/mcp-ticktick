@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlencode
 
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
@@ -14,16 +14,32 @@ def _get_client(ctx: Context) -> TickTickClient:
     return ctx.request_context.lifespan_context["client"]  # type: ignore[union-attr]
 
 
-def _generate_focus_id() -> str:
-    """Generate a time-based hex ID for focus sessions."""
-    ms = int(time.time() * 1000)
-    seed = ms ^ 0xDEAD_BEEF_CAFE_BABE
-    return f"{ms:x}{seed & 0xFFFFFFFF:08x}"
-
-
 def _to_iso(dt: datetime) -> str:
     """Format a datetime as ISO with +0000 UTC offset (TickTick format)."""
     return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}+0000"
+
+
+FOCUS_TYPES = (0, 1)  # 0 = pomodoro, 1 = stopwatch
+V1_FOCUS_MAX_RANGE = timedelta(days=30)
+
+
+async def _v1_focus_records(
+    client: TickTickClient, start: datetime, end: datetime
+) -> list[dict[str, Any]]:
+    """All focus records (both types) in [start, end], paged to the v1 30-day cap."""
+    records: list[dict[str, Any]] = []
+    chunk_start = start
+    while chunk_start < end:
+        chunk_end = min(chunk_start + V1_FOCUS_MAX_RANGE, end)
+        for focus_type in FOCUS_TYPES:
+            q = urlencode(
+                {"from": _to_iso(chunk_start), "to": _to_iso(chunk_end), "type": focus_type}
+            )
+            records.extend(await client.v1_get(f"/focus?{q}") or [])
+        chunk_start = chunk_end
+    # Records spanning a chunk boundary come back in both chunks.
+    unique = {r["id"]: r for r in records}
+    return sorted(unique.values(), key=lambda r: r.get("startTime", ""))
 
 
 def register(mcp: FastMCP) -> None:
@@ -86,9 +102,11 @@ def register(mcp: FastMCP) -> None:
         client = _get_client(ctx)
         from ticktick_mcp.dates import date_to_epoch_ms
 
-        from_ms = date_to_epoch_ms(from_date)
-        to_ms = date_to_epoch_ms(to_date) + 86400000 - 1  # End of day
-        return await client.v2_get(f"/pomodoros?from={from_ms}&to={to_ms}")
+        start = datetime.fromtimestamp(date_to_epoch_ms(from_date) / 1000, UTC)
+        end = datetime.fromtimestamp(date_to_epoch_ms(to_date) / 1000, UTC) + timedelta(
+            days=1, milliseconds=-1
+        )  # End of day
+        return await _v1_focus_records(client, start, end)
 
     @mcp.tool(
         annotations={
@@ -153,28 +171,24 @@ def register(mcp: FastMCP) -> None:
         start_iso = _to_iso(start_dt)
         end_iso = _to_iso(end_dt)
 
-        task_entry: dict[str, Any] = {
-            "startTime": start_iso,
-            "endTime": end_iso,
-            "title": "",
-        }
-        if task_id:
-            task_entry["taskId"] = task_id
-        if project_id:
-            task_entry["projectId"] = project_id
-
         record: dict[str, Any] = {
-            "id": _generate_focus_id(),
+            "type": 0,
             "startTime": start_iso,
             "endTime": end_iso,
             "status": 1,
             "pauseDuration": 0,
-            "tasks": [task_entry],
             "note": note,
         }
+        if task_id:
+            task_entry: dict[str, Any] = {
+                "taskId": task_id,
+                "startTime": start_iso,
+                "endTime": end_iso,
+            }
+            if project_id:
+                task_entry["projectId"] = project_id
+            record["taskId"] = task_id
+            record["tasks"] = [task_entry]
 
         client = _get_client(ctx)
-        return await client.v2_post(
-            "/batch/pomodoro",
-            {"add": [record], "update": [], "delete": []},
-        )
+        return await client.v1_post("/focus", record)

@@ -4,7 +4,8 @@ import httpx
 import pytest
 import respx
 
-from ticktick_mcp.client import V2_BASE, TickTickClient
+from tests.helpers import body, call_tool, result_data
+from ticktick_mcp.client import V1_BASE, V2_BASE, TickTickClient
 
 
 class TestFocusStatus:
@@ -32,13 +33,30 @@ class TestFocusStats:
 
 class TestFocusLog:
     @pytest.mark.anyio
-    async def test_log(self, client: TickTickClient, mock_api: respx.MockRouter):
-        mock_api.get(url__regex=r".*/pomodoros\?from=\d+&to=\d+").mock(
-            return_value=httpx.Response(200, json=[{"id": "p1", "duration": 1500000}])
+    async def test_log_queries_both_types_in_30_day_chunks(
+        self, env_vars, mock_api: respx.MockRouter
+    ):
+        route = mock_api.get(f"{V1_BASE}/focus").mock(
+            side_effect=lambda req: httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": f"f{req.url.params['type']}",
+                        "startTime": f"2026-0{int(req.url.params['type']) + 1}-01",
+                    }
+                ],
+            )
         )
-        result = await client.v2_get("/pomodoros?from=1740182400000&to=1740268799999")
-        assert len(result) == 1
-        assert result[0]["duration"] == 1500000
+        v2 = mock_api.get(url__regex=r".*/pomodoros\?.*")
+        result = await call_tool("focus_log", {"from_date": "2026-01-01", "to_date": "2026-02-14"})
+        assert not v2.called
+        # 45 days -> 2 chunks x 2 types
+        assert route.call_count == 4
+        assert {c.request.url.params["type"] for c in route.calls} == {"0", "1"}
+        assert route.calls[0].request.url.params["from"] == "2026-01-01T00:00:00.000+0000"
+        assert route.calls[-1].request.url.params["to"] == "2026-02-14T23:59:59.999+0000"
+        # Duplicates across chunks collapse; sorted by start
+        assert [r["id"] for r in result_data(result)] == ["f0", "f1"]
 
 
 class TestFocusTimeline:
@@ -55,81 +73,43 @@ class TestFocusTimeline:
 
 class TestFocusSave:
     @pytest.mark.anyio
-    async def test_save_basic(self, client: TickTickClient, mock_api: respx.MockRouter):
-        route = mock_api.post(f"{V2_BASE}/batch/pomodoro").mock(
-            return_value=httpx.Response(200, json={"id2etag": {}})
+    async def test_save_basic(self, env_vars, mock_api: respx.MockRouter):
+        route = mock_api.post(f"{V1_BASE}/focus").mock(
+            return_value=httpx.Response(200, json={"id": "f1"})
         )
-        result = await client.v2_post(
-            "/batch/pomodoro",
-            {
-                "add": [
-                    {
-                        "id": "test123",
-                        "startTime": "2026-02-22T14:00:00.000+0000",
-                        "endTime": "2026-02-22T14:25:00.000+0000",
-                        "status": 1,
-                        "pauseDuration": 0,
-                        "tasks": [
-                            {
-                                "startTime": "2026-02-22T14:00:00.000+0000",
-                                "endTime": "2026-02-22T14:25:00.000+0000",
-                                "title": "",
-                            }
-                        ],
-                        "note": "",
-                    }
-                ],
-                "update": [],
-                "delete": [],
-            },
-        )
-        assert route.called
-        request = route.calls[0].request
-        body = httpx.Request("POST", request.url, content=request.content).content
-        import json
-
-        parsed = json.loads(body)
-        record = parsed["add"][0]
-        assert record["status"] == 1
-        assert record["pauseDuration"] == 0
-        assert len(record["tasks"]) == 1
-        assert result == {"id2etag": {}}
+        await call_tool("focus_save", {"duration_minutes": 25, "end": "2026-02-22T14:25:00+00:00"})
+        assert body(route) == {
+            "type": 0,
+            "startTime": "2026-02-22T14:00:00.000+0000",
+            "endTime": "2026-02-22T14:25:00.000+0000",
+            "status": 1,
+            "pauseDuration": 0,
+            "note": "",
+        }
 
     @pytest.mark.anyio
-    async def test_save_with_task(self, client: TickTickClient, mock_api: respx.MockRouter):
-        route = mock_api.post(f"{V2_BASE}/batch/pomodoro").mock(
-            return_value=httpx.Response(200, json={"id2etag": {}})
+    async def test_save_with_task(self, env_vars, mock_api: respx.MockRouter):
+        route = mock_api.post(f"{V1_BASE}/focus").mock(
+            return_value=httpx.Response(200, json={"id": "f1"})
         )
-        await client.v2_post(
-            "/batch/pomodoro",
+        await call_tool(
+            "focus_save",
             {
-                "add": [
-                    {
-                        "id": "test456",
-                        "startTime": "2026-02-22T14:00:00.000+0000",
-                        "endTime": "2026-02-22T14:25:00.000+0000",
-                        "status": 1,
-                        "pauseDuration": 0,
-                        "tasks": [
-                            {
-                                "startTime": "2026-02-22T14:00:00.000+0000",
-                                "endTime": "2026-02-22T14:25:00.000+0000",
-                                "title": "",
-                                "taskId": "task1",
-                                "projectId": "proj1",
-                            }
-                        ],
-                        "note": "Deep work session",
-                    }
-                ],
-                "update": [],
-                "delete": [],
+                "duration_minutes": 25,
+                "end": "2026-02-22T14:25:00+00:00",
+                "note": "Deep work session",
+                "task_id": "task1",
+                "project_id": "proj1",
             },
         )
-        import json
-
-        parsed = json.loads(route.calls[0].request.content)
-        task = parsed["add"][0]["tasks"][0]
-        assert task["taskId"] == "task1"
-        assert task["projectId"] == "proj1"
-        assert parsed["add"][0]["note"] == "Deep work session"
+        record = body(route)
+        assert record["taskId"] == "task1"
+        assert record["tasks"] == [
+            {
+                "taskId": "task1",
+                "startTime": "2026-02-22T14:00:00.000+0000",
+                "endTime": "2026-02-22T14:25:00.000+0000",
+                "projectId": "proj1",
+            }
+        ]
+        assert record["note"] == "Deep work session"
