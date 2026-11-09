@@ -11,6 +11,10 @@
 - `delete_tags` uses `DELETE /open/v1/tag/delete?scope=0`. Like v2, this removes the tag from every task; the old docstring wrongly said tasks were unaffected. (#20)
 - `merge_tags` stays on v2: there is no official endpoint.
 - New `TickTickClient.v1_put`; `v1_delete` accepts a JSON body.
+- `list_folders` and folder name resolution (also used by `add_project`/`edit_project`) use `GET /open/v1/project/group` instead of the full v2 account sync, so they are much lighter. (#21)
+- `add_folder` uses `POST /open/v1/project/group` and returns the new folder instead of an `id2etag` map. (#22)
+- `rename_folder` uses `POST /open/v1/project/group/{id}`; no etag needed. (#23)
+- `delete_folders` uses `DELETE /open/v1/project/group/{id}`, one call per folder. As before, projects inside are ungrouped, not deleted (verified live). (#24)
 - Add optional shared HTTP transport: `TICKTICK_MCP_TRANSPORT=http` (with `TICKTICK_MCP_HOST`/`TICKTICK_MCP_PORT`, default `127.0.0.1:8502`) runs one server for many clients. Loopback-only, with Host/Origin (DNS-rebinding) protection always on. stdio stays the default.
 - Require FastMCP 4.1 (MCP SDK 2.3)
 

@@ -7,6 +7,7 @@ import pytest
 import respx
 from fastmcp import Client
 
+from tests.helpers import body, call_tool
 from ticktick_mcp.client import V1_BASE, V2_BASE, TickTickClient
 
 
@@ -32,26 +33,15 @@ class TestListTags:
         assert [t["name"] for t in result.structured_content["result"]] == ["work", "personal"]
 
 
-async def _call(tool: str, args: dict):
-    from ticktick_mcp.server import mcp
-
-    async with Client(mcp) as c:
-        return await c.call_tool(tool, args)
-
-
-def _body(route: respx.Route, i: int = 0) -> dict:
-    return json.loads(route.calls[i].request.content)
-
-
 class TestAddTags:
     @pytest.mark.anyio
     async def test_add_posts_each_name_to_v1(self, env_vars, mock_api: respx.MockRouter):
         route = mock_api.post(f"{V1_BASE}/tag").mock(
             side_effect=lambda req: httpx.Response(200, json=json.loads(req.content))
         )
-        await _call("add_tags", {"names": ["errands", "home"]})
+        await call_tool("add_tags", {"names": ["errands", "home"]})
         assert route.call_count == 2
-        assert _body(route, 1) == {"label": "home", "name": "home"}
+        assert body(route, 1) == {"label": "home", "name": "home"}
 
 
 class TestDeleteTags:
@@ -60,9 +50,9 @@ class TestDeleteTags:
         route = mock_api.delete(f"{V1_BASE}/tag/delete", params={"scope": "0"}).mock(
             return_value=httpx.Response(200)
         )
-        await _call("delete_tags", {"names": ["work", "a b"]})
+        await call_tool("delete_tags", {"names": ["work", "a b"]})
         assert route.call_count == 2
-        assert _body(route, 1) == {"name": "a b"}
+        assert body(route, 1) == {"name": "a b"}
 
 
 class TestRenameTag:
@@ -71,8 +61,8 @@ class TestRenameTag:
         route = mock_api.put(f"{V1_BASE}/tag/rename", params={"scope": "0"}).mock(
             return_value=httpx.Response(200, json={"name": "new_tag"})
         )
-        await _call("rename_tag", {"old_name": "old_tag", "new_name": "new_tag"})
-        assert _body(route) == {"name": "old_tag", "newName": "new_tag"}
+        await call_tool("rename_tag", {"old_name": "old_tag", "new_name": "new_tag"})
+        assert body(route) == {"name": "old_tag", "newName": "new_tag"}
 
 
 class TestEditTag:
@@ -81,8 +71,8 @@ class TestEditTag:
         route = mock_api.put(f"{V1_BASE}/tag").mock(
             return_value=httpx.Response(200, json={"name": "work"})
         )
-        await _call("edit_tag", {"name": "work", "color": "#00FF00", "clear_parent": True})
-        assert _body(route) == {"name": "work", "color": "#00FF00", "parent": ""}
+        await call_tool("edit_tag", {"name": "work", "color": "#00FF00", "clear_parent": True})
+        assert body(route) == {"name": "work", "color": "#00FF00", "parent": ""}
 
 
 class TestMergeTags:
