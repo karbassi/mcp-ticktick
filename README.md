@@ -267,7 +267,7 @@ You need a TickTick [OAuth app](https://developer.ticktick.com/manage) (free to 
 | `TICKTICK_REFRESH_TOKEN` | No | OAuth refresh token |
 | `TICKTICK_V2_SESSION_TOKEN` | No | Browser `t` cookie for v2 features |
 
-> **v1 vs v2:** The access token covers tasks and projects. For tags, folders, filters, habits, focus, and calendar you also need a v2 session token — grab the `t` cookie from your browser while logged into ticktick.com.
+> **v1 vs v2:** The access token (official API) covers tasks, projects, tags, folders, habit section listing, and focus logging/saving. Everything else needs a v2 session token: tag merge, filters, habits, focus stats/timeline/timer, calendar, trash, subtasks, moving tasks, and completed tasks. Grab the `t` cookie from your browser while logged into ticktick.com.
 
 ## Development
 
