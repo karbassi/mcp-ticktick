@@ -4,6 +4,7 @@ import httpx
 import pytest
 import respx
 
+from tests.helpers import body, call_tool
 from ticktick_mcp.client import V1_BASE, V2_BASE, TickTickClient
 
 
@@ -62,15 +63,28 @@ class TestDeleteTask:
 
 class TestMoveTask:
     @pytest.mark.anyio
-    async def test_move(self, client: TickTickClient, mock_api: respx.MockRouter):
-        mock_api.post(f"{V2_BASE}/batch/taskProject").mock(
-            return_value=httpx.Response(200, json={"ok": True})
+    async def test_move_uses_v1(self, env_vars, mock_api: respx.MockRouter):
+        route = mock_api.post(f"{V1_BASE}/task/move").mock(
+            return_value=httpx.Response(200, json=[{"id": "t1"}])
         )
-        result = await client.v2_post(
-            "/batch/taskProject",
-            [{"taskId": "t1", "fromProjectId": "p1", "toProjectId": "p2"}],
+        mock_api.get(f"{V1_BASE}/project").mock(return_value=httpx.Response(200, json=[]))
+        v2 = mock_api.post(f"{V2_BASE}/batch/taskProject")
+        await call_tool(
+            "move_task",
+            {
+                "task_id": "t1",
+                "from_project": "inbox123",
+                "to_project": "aaaaaaaaaaaaaaaaaaaaaaaa",
+            },
         )
-        assert result["ok"] is True
+        assert not v2.called
+        assert body(route) == [
+            {
+                "taskId": "t1",
+                "fromProjectId": "inbox123",
+                "toProjectId": "aaaaaaaaaaaaaaaaaaaaaaaa",
+            }
+        ]
 
 
 class TestSetSubtask:

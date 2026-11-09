@@ -383,8 +383,8 @@ def register(mcp: FastMCP) -> None:
         client = _get_client(ctx)
         from_pid = await _resolve_project_id(client, from_project)
         to_pid = await _resolve_project_id(client, to_project)
-        await client.v2_post(
-            "/batch/taskProject",
+        await client.v1_post(
+            "/task/move",
             [{"taskId": task_id, "fromProjectId": from_pid, "toProjectId": to_pid}],
         )
         return f"Task {task_id} moved to {to_project}"

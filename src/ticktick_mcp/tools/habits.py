@@ -31,7 +31,7 @@ async def _resolve_habit(client: TickTickClient, name_or_id: str) -> tuple[str, 
 
 async def _resolve_section(client: TickTickClient, name_or_id: str) -> tuple[str, str]:
     """Resolve a habit section name/ID to (id, name)."""
-    sections = await client.v2_get("/habitSections")
+    sections = await client.v1_get("/habit/sections")
     parsed = [HabitSection(**s) for s in sections]
 
     # Check hex ID
@@ -310,7 +310,7 @@ def register(mcp: FastMCP) -> None:
         client = _get_client(ctx)
 
         if action == "list":
-            return await client.v2_get("/habitSections")
+            return await client.v1_get("/habit/sections")
 
         if action == "add":
             if not name:

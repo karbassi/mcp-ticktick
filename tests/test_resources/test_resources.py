@@ -56,7 +56,7 @@ class TestProjectsResource:
 class TestTagsResource:
     @pytest.mark.anyio
     async def test_tags(self, client: TickTickClient, mock_api: respx.MockRouter):
-        mock_api.get(f"{V2_BASE}/tags").mock(
+        mock_api.get(f"{V1_BASE}/tag").mock(
             return_value=httpx.Response(
                 200,
                 json=[
@@ -65,6 +65,6 @@ class TestTagsResource:
                 ],
             )
         )
-        result = await client.v2_get("/tags")
+        result = await client.v1_get("/tag")
         assert len(result) == 2
         assert result[1]["parent"] == "life"
