@@ -24,10 +24,9 @@ def register(mcp: FastMCP) -> None:
         """List all tags.
 
         Returns all tags with their names, colors, parent relationships, and sort settings.
-        Requires v2 session token.
         """
         client = _get_client(ctx)
-        return await client.v2_get("/tags")
+        return await client.v1_get("/tag")
 
     @mcp.tool(
         annotations={
