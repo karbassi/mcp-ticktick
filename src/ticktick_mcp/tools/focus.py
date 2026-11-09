@@ -38,8 +38,10 @@ async def _v1_focus_records(
             records.extend(await client.v1_get(f"/focus?{q}") or [])
         chunk_start = chunk_end
     # Records spanning a chunk boundary come back in both chunks.
-    unique = {r["id"]: r for r in records}
-    return sorted(unique.values(), key=lambda r: r.get("startTime", ""))
+    # Records without an id can't be matched, so they are always kept.
+    unique = {r["id"]: r for r in records if r.get("id")}
+    unique_records = [*unique.values(), *(r for r in records if not r.get("id"))]
+    return sorted(unique_records, key=lambda r: r.get("startTime", ""))
 
 
 def register(mcp: FastMCP) -> None:
@@ -179,15 +181,13 @@ def register(mcp: FastMCP) -> None:
             "pauseDuration": 0,
             "note": note,
         }
-        if task_id:
-            task_entry: dict[str, Any] = {
-                "taskId": task_id,
-                "startTime": start_iso,
-                "endTime": end_iso,
-            }
+        if task_id or project_id:
+            task_entry: dict[str, Any] = {"startTime": start_iso, "endTime": end_iso}
+            if task_id:
+                task_entry["taskId"] = task_id
+                record["taskId"] = task_id
             if project_id:
                 task_entry["projectId"] = project_id
-            record["taskId"] = task_id
             record["tasks"] = [task_entry]
 
         client = _get_client(ctx)

@@ -58,6 +58,15 @@ class TestFocusLog:
         # Duplicates across chunks collapse; sorted by start
         assert [r["id"] for r in result_data(result)] == ["f0", "f1"]
 
+    @pytest.mark.anyio
+    async def test_log_keeps_records_without_id(self, env_vars, mock_api: respx.MockRouter):
+        mock_api.get(f"{V1_BASE}/focus").mock(
+            return_value=httpx.Response(200, json=[{"startTime": "2026-01-02", "note": "x"}])
+        )
+        result = await call_tool("focus_log", {"from_date": "2026-01-01", "to_date": "2026-01-02"})
+        # One chunk x two types, no ids -> both kept, no crash
+        assert [r["note"] for r in result_data(result)] == ["x", "x"]
+
 
 class TestFocusTimeline:
     @pytest.mark.anyio
@@ -113,3 +122,22 @@ class TestFocusSave:
             }
         ]
         assert record["note"] == "Deep work session"
+
+    @pytest.mark.anyio
+    async def test_save_with_project_only(self, env_vars, mock_api: respx.MockRouter):
+        route = mock_api.post(f"{V1_BASE}/focus").mock(
+            return_value=httpx.Response(200, json={"id": "f1"})
+        )
+        await call_tool(
+            "focus_save",
+            {"duration_minutes": 25, "end": "2026-02-22T14:25:00+00:00", "project_id": "proj1"},
+        )
+        record = body(route)
+        assert "taskId" not in record
+        assert record["tasks"] == [
+            {
+                "startTime": "2026-02-22T14:00:00.000+0000",
+                "endTime": "2026-02-22T14:25:00.000+0000",
+                "projectId": "proj1",
+            }
+        ]
