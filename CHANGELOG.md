@@ -19,6 +19,7 @@
 - `focus_save` uses `POST /open/v1/focus`. The server assigns the record ID; a linked task is sent as `taskId`. (#32)
 - `focus_stats`, `focus_timeline`, and `focus_status` stay on v2: there is no official endpoint.
 - `manage_habit_sections(action="list")` and section name resolution use `GET /open/v1/habit/sections`. Live output is identical to v2. Adding, renaming, and deleting sections stay on v2: there is no official write endpoint. (#28)
+- `move_task` uses `POST /open/v1/task/move` (same body as v2 `/batch/taskProject`). Verified live for project→project, inbox→project, and project→inbox; content, priority, and tags are kept. (#36)
 - Add optional shared HTTP transport: `TICKTICK_MCP_TRANSPORT=http` (with `TICKTICK_MCP_HOST`/`TICKTICK_MCP_PORT`, default `127.0.0.1:8502`) runs one server for many clients. Loopback-only, with Host/Origin (DNS-rebinding) protection always on. stdio stays the default.
 - Require FastMCP 4.1 (MCP SDK 2.3)
 
