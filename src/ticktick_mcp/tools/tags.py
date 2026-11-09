@@ -4,7 +4,7 @@ from typing import Any
 
 from fastmcp import Context, FastMCP
 
-from ticktick_mcp.client import TickTickClient, url_encode
+from ticktick_mcp.client import TickTickClient
 
 
 def _get_client(ctx: Context) -> TickTickClient:
@@ -46,8 +46,7 @@ def register(mcp: FastMCP) -> None:
             names: List of tag names to create.
         """
         client = _get_client(ctx)
-        add = [{"label": n, "name": n} for n in names]
-        return await client.v2_post("/batch/tag", {"add": add})
+        return [await client.v1_post("/tag", {"label": n, "name": n}) for n in names]
 
     @mcp.tool(
         annotations={
@@ -63,14 +62,14 @@ def register(mcp: FastMCP) -> None:
     ) -> str:
         """Delete one or more tags by name.
 
-        This removes the tags but does not affect tasks that had those tags.
+        Tasks keep existing, but the tag is removed from every task that had it.
 
         Args:
             names: List of tag names to delete.
         """
         client = _get_client(ctx)
         for name in names:
-            await client.v2_delete(f"/tag?name={url_encode(name)}")
+            await client.v1_delete("/tag/delete?scope=0", {"name": name})
         return f"Deleted {len(names)} tag(s)"
 
     @mcp.tool(
@@ -95,7 +94,7 @@ def register(mcp: FastMCP) -> None:
             new_name: New tag name.
         """
         client = _get_client(ctx)
-        await client.v2_put("/tag/rename", {"name": old_name, "newName": new_name})
+        await client.v1_put("/tag/rename?scope=0", {"name": old_name, "newName": new_name})
         return f"Tag '{old_name}' renamed to '{new_name}'"
 
     @mcp.tool(
@@ -139,7 +138,7 @@ def register(mcp: FastMCP) -> None:
             tag["sortOrder"] = sort_order
         if sort_type is not None:
             tag["sortType"] = sort_type
-        return await client.v2_post("/batch/tag", {"update": [tag]})
+        return await client.v1_put("/tag", tag)
 
     @mcp.tool(
         annotations={
