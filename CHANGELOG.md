@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Kanban columns
+
+- New `list_columns`, `add_column`, and `edit_column` using `GET`/`POST /open/v1/project/{id}/column` and `POST /open/v1/project/{id}/column/{columnId}`. Columns resolve by name. There is no `delete_column`: the official API returns 405 for `DELETE` on a column (verified live).
+- `add_task` and `edit_task` take an optional `column` (name or ID) that sets the task's `columnId`.
+
 ### Countdowns
 
 - New `list_countdowns` tool using the official `GET /open/v1/countdown` (no v2 session needed). Read-only: `POST`, `PUT` and `DELETE` on `/open/v1/countdown` return 405, so there are no write tools.

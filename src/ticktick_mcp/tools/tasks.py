@@ -11,6 +11,7 @@ from ticktick_mcp.client import TickTickClient
 from ticktick_mcp.dates import ParsedDateTime, parse_datetime, parse_duration
 from ticktick_mcp.models import Project
 from ticktick_mcp.resolve import resolve_name
+from ticktick_mcp.tools.columns import resolve_column_id
 
 PRIORITY_MAP = {"none": 0, "low": 1, "medium": 3, "high": 5}
 COMPLETE_BATCH_SIZE = 50
@@ -160,6 +161,7 @@ def register(mcp: FastMCP) -> None:
         items: list[str] | None = None,
         all_day: bool | None = None,
         timezone: str | None = None,
+        column: str | None = None,
         reminders: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create a new task in TickTick.
@@ -177,6 +179,7 @@ def register(mcp: FastMCP) -> None:
             items: List of checklist item titles.
             all_day: Whether this is an all-day task. Auto-detected from date format.
             timezone: IANA timezone name (e.g. "America/Chicago"). Defaults to system timezone.
+            column: Kanban column name or ID to put the task in. Requires project.
             reminders: Reminder triggers, e.g. ["TRIGGER:PT0S"] (at due time) or
                 ["TRIGGER:-PT15M"] (15 min before). Omit to get the default when the task
                 has a date: at the due time for timed tasks, 9am for all-day tasks. Pass
@@ -187,6 +190,10 @@ def register(mcp: FastMCP) -> None:
 
         if project:
             body["projectId"] = await _resolve_project_id(client, project)
+        if column:
+            if not project:
+                raise ToolError("column requires project")
+            body["columnId"] = await resolve_column_id(client, body["projectId"], column)
 
         pri_val = PRIORITY_MAP.get(priority.lower())
         if pri_val is None:
@@ -271,6 +278,7 @@ def register(mcp: FastMCP) -> None:
         clear_due: bool = False,
         clear_start: bool = False,
         timezone: str | None = None,
+        column: str | None = None,
         reminders: list[str] | None = None,
     ) -> dict[str, Any]:
         """Update an existing task.
@@ -290,12 +298,15 @@ def register(mcp: FastMCP) -> None:
             clear_due: Set to true to remove the due date.
             clear_start: Set to true to remove the start date.
             timezone: IANA timezone for date interpretation.
+            column: Move the task to this kanban column (name or ID) within its project.
             reminders: Replace all reminders with these triggers, e.g. ["TRIGGER:PT0S"].
                 Pass [] to remove all reminders. Omit to leave reminders unchanged.
         """
         client = _get_client(ctx)
         pid = await _resolve_project_id(client, project)
         body: dict[str, Any] = {"taskId": task_id, "projectId": pid}
+        if column:
+            body["columnId"] = await resolve_column_id(client, pid, column)
 
         if title is not None:
             body["title"] = title
