@@ -95,10 +95,10 @@ class TestTaskReminders:
         route = mock_api.post(f"{V1_BASE}/task/t1").mock(
             return_value=httpx.Response(200, json={"id": "t1"})
         )
-        await call_tool("edit_task", {"task_id": "t1", "project": "p1", "title": "y"})
-        await call_tool("edit_task", {"task_id": "t1", "project": "p1", "reminders": []})
+        await call_tool("edit_task", {"task_id": "t1", "project": "Work", "title": "y"})
+        await call_tool("edit_task", {"task_id": "t1", "project": "Work", "reminders": []})
         await call_tool(
-            "edit_task", {"task_id": "t1", "project": "p1", "reminders": ["TRIGGER:PT0S"]}
+            "edit_task", {"task_id": "t1", "project": "Work", "reminders": ["TRIGGER:PT0S"]}
         )
         assert "reminders" not in body(route, 0)
         assert body(route, 1)["reminders"] == []
@@ -112,7 +112,9 @@ class TestTaskReminders:
         route = mock_api.post(f"{V1_BASE}/task/t1").mock(
             return_value=httpx.Response(200, json={"id": "t1"})
         )
-        await call_tool("edit_task", {"task_id": "t1", "project": "p1", "due": "2027-03-01T10:00"})
+        await call_tool(
+            "edit_task", {"task_id": "t1", "project": "Work", "due": "2027-03-01T10:00"}
+        )
         assert "reminders" not in body(route)
 
 
