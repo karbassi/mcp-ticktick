@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Countdowns
+
+- New `list_countdowns` tool using the official `GET /open/v1/countdown` (no v2 session needed). Read-only: `POST`, `PUT` and `DELETE` on `/open/v1/countdown` return 405, so there are no write tools.
+
 ### Official API migration (#15)
 
 - `list_tags` and the `ticktick://tags` resource now use the official `GET /open/v1/tag` instead of v2 `GET /tags`, so they no longer need the v2 session token. Same tags, colors, and parents (verified live: 38 = 38). v1 omits `etag`, `rawName`, `sortOption`, and `timeline`, which nothing reads. (#16)

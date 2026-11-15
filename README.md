@@ -12,7 +12,7 @@
 A [Model Context Protocol](https://modelcontextprotocol.io/) server that gives LLMs full access to [TickTick](https://ticktick.com).<br>
 Tasks, projects, habits, focus timers, tags, filters, calendar — all of it.
 
-**45 tools** · **4 resources** · **Every TickTick feature**
+**46 tools** · **4 resources** · **Every TickTick feature**
 
 </div>
 
@@ -230,6 +230,12 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `list_calendars` | List connected calendar accounts |
 | `list_events` | Query events for a date range |
 | `sync_account` | Full account sync |
+
+### Countdowns
+
+| Tool | Description |
+|---|---|
+| `list_countdowns` | List countdowns (read-only; the official API has no writes) |
 
 </details>
 
