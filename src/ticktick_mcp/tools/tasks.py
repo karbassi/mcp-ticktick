@@ -12,6 +12,12 @@ from ticktick_mcp.models import Project
 from ticktick_mcp.resolve import resolve_name
 
 PRIORITY_MAP = {"none": 0, "low": 1, "medium": 3, "high": 5}
+COMPLETE_BATCH_SIZE = 50
+
+# Default reminders, matching TickTick's own connector: at the due time for timed
+# tasks, 9am on the day for all-day tasks.
+DEFAULT_TIMED_REMINDER = "TRIGGER:PT0S"
+DEFAULT_ALL_DAY_REMINDER = "TRIGGER:P0DT9H0M0S"
 
 
 def _get_client(ctx: Context) -> TickTickClient:
@@ -153,6 +159,7 @@ def register(mcp: FastMCP) -> None:
         items: list[str] | None = None,
         all_day: bool | None = None,
         timezone: str | None = None,
+        reminders: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create a new task in TickTick.
 
@@ -169,6 +176,10 @@ def register(mcp: FastMCP) -> None:
             items: List of checklist item titles.
             all_day: Whether this is an all-day task. Auto-detected from date format.
             timezone: IANA timezone name (e.g. "America/Chicago"). Defaults to system timezone.
+            reminders: Reminder triggers, e.g. ["TRIGGER:PT0S"] (at due time) or
+                ["TRIGGER:-PT15M"] (15 min before). Omit to get the default when the task
+                has a date: at the due time for timed tasks, 9am for all-day tasks. Pass
+                [] for no reminder.
         """
         client = _get_client(ctx)
         body: dict[str, Any] = {"title": title}
@@ -228,6 +239,13 @@ def register(mcp: FastMCP) -> None:
         if timezone:
             body["timeZone"] = timezone
 
+        if reminders is not None:
+            body["reminders"] = reminders
+        elif due or start:
+            body["reminders"] = [
+                DEFAULT_ALL_DAY_REMINDER if body.get("isAllDay") else DEFAULT_TIMED_REMINDER
+            ]
+
         return await client.v1_post("/task", body)
 
     @mcp.tool(
@@ -252,6 +270,7 @@ def register(mcp: FastMCP) -> None:
         clear_due: bool = False,
         clear_start: bool = False,
         timezone: str | None = None,
+        reminders: list[str] | None = None,
     ) -> dict[str, Any]:
         """Update an existing task.
 
@@ -270,6 +289,8 @@ def register(mcp: FastMCP) -> None:
             clear_due: Set to true to remove the due date.
             clear_start: Set to true to remove the start date.
             timezone: IANA timezone for date interpretation.
+            reminders: Replace all reminders with these triggers, e.g. ["TRIGGER:PT0S"].
+                Pass [] to remove all reminders. Omit to leave reminders unchanged.
         """
         client = _get_client(ctx)
         pid = await _resolve_project_id(client, project)
@@ -306,6 +327,9 @@ def register(mcp: FastMCP) -> None:
         if timezone:
             body["timeZone"] = timezone
 
+        if reminders is not None:
+            body["reminders"] = reminders
+
         return await client.v1_post(f"/task/{task_id}", body)
 
     @mcp.tool(
@@ -318,19 +342,40 @@ def register(mcp: FastMCP) -> None:
     )
     async def complete_task(
         ctx: Context,
-        task_id: str,
         project: str,
+        task_id: str | None = None,
+        task_ids: list[str] | None = None,
     ) -> str:
-        """Mark a task as complete.
+        """Mark one or more tasks as complete.
+
+        Pass `task_id` for a single task, or `task_ids` for several. Several tasks are
+        completed with the batch endpoint in chunks of 50 instead of one request each.
 
         Args:
-            task_id: The task ID to complete.
-            project: The project name or ID containing the task.
+            project: The project name or ID containing the task(s).
+            task_id: A single task ID to complete.
+            task_ids: Several task IDs to complete (all in `project`).
         """
+        ids: list[str] = list(dict.fromkeys([*([task_id] if task_id else []), *(task_ids or [])]))
+        if not ids:
+            raise ToolError("Provide task_id or task_ids")
         client = _get_client(ctx)
         pid = await _resolve_project_id(client, project)
-        await client.v1_post_empty(f"/project/{pid}/task/{task_id}/complete")
-        return f"Task {task_id} completed"
+        if len(ids) == 1:
+            await client.v1_post_empty(f"/project/{pid}/task/{ids[0]}/complete")
+            return f"Task {ids[0]} completed"
+        done: set[str] = set()
+        for i in range(0, len(ids), COMPLETE_BATCH_SIZE):
+            chunk = ids[i : i + COMPLETE_BATCH_SIZE]
+            result = await client.v1_post(
+                "/task/completeTasks", {"projectId": pid, "taskIds": chunk}
+            )
+            done.update(result or [])
+        failed = [t for t in ids if t not in done]
+        msg = f"Completed {len(ids) - len(failed)} of {len(ids)} tasks"
+        if failed:
+            msg += f"; not completed: {', '.join(failed)}"
+        return msg
 
     @mcp.tool(
         annotations={

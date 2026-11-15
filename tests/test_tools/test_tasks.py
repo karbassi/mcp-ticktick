@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 import respx
+from fastmcp.exceptions import ToolError
 
-from tests.helpers import body, call_tool
+from tests.helpers import body, call_tool, result_data
 from ticktick_mcp.client import V1_BASE, V2_BASE, TickTickClient
 
 
@@ -43,6 +46,81 @@ class TestAddTask:
         assert result["title"] == "Buy milk"
 
 
+class TestTaskReminders:
+    @pytest.fixture
+    def post_task(self, mock_api: respx.MockRouter):
+        return mock_api.post(f"{V1_BASE}/task").mock(
+            return_value=httpx.Response(200, json={"id": "t1", "title": "x"})
+        )
+
+    @pytest.mark.anyio
+    async def test_timed_task_defaults_to_at_due_time(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "due": "2027-03-01T10:00"})
+        assert body(post_task)["reminders"] == ["TRIGGER:PT0S"]
+
+    @pytest.mark.anyio
+    async def test_all_day_task_defaults_to_9am(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "due": "2027-03-01"})
+        assert body(post_task)["reminders"] == ["TRIGGER:P0DT9H0M0S"]
+
+    @pytest.mark.anyio
+    async def test_start_only_task_gets_default(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "start": "2027-03-01T10:00"})
+        assert body(post_task)["reminders"] == ["TRIGGER:PT0S"]
+
+    @pytest.mark.anyio
+    async def test_all_day_flag_overrides_default(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "due": "2027-03-01", "all_day": False})
+        assert body(post_task)["reminders"] == ["TRIGGER:PT0S"]
+
+    @pytest.mark.anyio
+    async def test_no_date_means_no_default(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x"})
+        assert "reminders" not in body(post_task)
+
+    @pytest.mark.anyio
+    async def test_explicit_reminders_win(self, env_vars, post_task):
+        await call_tool(
+            "add_task", {"title": "x", "due": "2027-03-01T10:00", "reminders": ["TRIGGER:-PT15M"]}
+        )
+        assert body(post_task)["reminders"] == ["TRIGGER:-PT15M"]
+
+    @pytest.mark.anyio
+    async def test_empty_list_means_no_reminder(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "due": "2027-03-01T10:00", "reminders": []})
+        assert body(post_task)["reminders"] == []
+
+    @pytest.mark.anyio
+    async def test_edit_sends_reminders_only_when_passed(self, env_vars, mock_api):
+        mock_api.get(f"{V1_BASE}/project").mock(
+            return_value=httpx.Response(200, json=[{"id": "p1", "name": "Work"}])
+        )
+        route = mock_api.post(f"{V1_BASE}/task/t1").mock(
+            return_value=httpx.Response(200, json={"id": "t1"})
+        )
+        await call_tool("edit_task", {"task_id": "t1", "project": "Work", "title": "y"})
+        await call_tool("edit_task", {"task_id": "t1", "project": "Work", "reminders": []})
+        await call_tool(
+            "edit_task", {"task_id": "t1", "project": "Work", "reminders": ["TRIGGER:PT0S"]}
+        )
+        assert "reminders" not in body(route, 0)
+        assert body(route, 1)["reminders"] == []
+        assert body(route, 2)["reminders"] == ["TRIGGER:PT0S"]
+
+    @pytest.mark.anyio
+    async def test_edit_with_date_does_not_add_default(self, env_vars, mock_api):
+        mock_api.get(f"{V1_BASE}/project").mock(
+            return_value=httpx.Response(200, json=[{"id": "p1", "name": "Work"}])
+        )
+        route = mock_api.post(f"{V1_BASE}/task/t1").mock(
+            return_value=httpx.Response(200, json={"id": "t1"})
+        )
+        await call_tool(
+            "edit_task", {"task_id": "t1", "project": "Work", "due": "2027-03-01T10:00"}
+        )
+        assert "reminders" not in body(route)
+
+
 class TestCompleteTask:
     @pytest.mark.anyio
     async def test_complete(self, client: TickTickClient, mock_api: respx.MockRouter):
@@ -51,6 +129,54 @@ class TestCompleteTask:
         )
         resp = await client.v1_post_empty("/project/p1/task/t1/complete")
         assert resp.status_code == 200
+
+
+class TestCompleteTasksBatch:
+    @pytest.mark.anyio
+    async def test_single_uses_single_endpoint(self, env_vars, mock_api: respx.MockRouter):
+        single = mock_api.post(f"{V1_BASE}/project/aaaaaaaaaaaaaaaaaaaaaaaa/task/t1/complete").mock(
+            return_value=httpx.Response(200)
+        )
+        mock_api.get(f"{V1_BASE}/project").mock(return_value=httpx.Response(200, json=[]))
+        batch = mock_api.post(f"{V1_BASE}/task/completeTasks")
+        res = await call_tool(
+            "complete_task", {"task_id": "t1", "project": "aaaaaaaaaaaaaaaaaaaaaaaa"}
+        )
+        assert single.called and not batch.called
+        assert result_data(res) == "Task t1 completed"
+
+    @pytest.mark.anyio
+    async def test_several_use_batch_endpoint(self, env_vars, mock_api: respx.MockRouter):
+        mock_api.get(f"{V1_BASE}/project").mock(return_value=httpx.Response(200, json=[]))
+        route = mock_api.post(f"{V1_BASE}/task/completeTasks").mock(
+            return_value=httpx.Response(200, json=["t1", "t2"])
+        )
+        res = await call_tool(
+            "complete_task",
+            {"task_ids": ["t1", "t2", "t1"], "project": "aaaaaaaaaaaaaaaaaaaaaaaa"},
+        )
+        assert body(route) == {"projectId": "aaaaaaaaaaaaaaaaaaaaaaaa", "taskIds": ["t1", "t2"]}
+        assert result_data(res) == "Completed 2 of 2 tasks"
+
+    @pytest.mark.anyio
+    async def test_chunks_of_50_and_reports_failures(self, env_vars, mock_api: respx.MockRouter):
+        mock_api.get(f"{V1_BASE}/project").mock(return_value=httpx.Response(200, json=[]))
+        ids = [f"t{i}" for i in range(120)]
+        route = mock_api.post(f"{V1_BASE}/task/completeTasks").mock(
+            side_effect=lambda req: httpx.Response(
+                200, json=[t for t in json.loads(req.content)["taskIds"] if t != "t7"]
+            )
+        )
+        res = await call_tool(
+            "complete_task", {"task_ids": ids, "project": "aaaaaaaaaaaaaaaaaaaaaaaa"}
+        )
+        assert [len(body(route, i)["taskIds"]) for i in range(route.call_count)] == [50, 50, 20]
+        assert result_data(res) == "Completed 119 of 120 tasks; not completed: t7"
+
+    @pytest.mark.anyio
+    async def test_requires_an_id(self, env_vars, mock_api: respx.MockRouter):
+        with pytest.raises(ToolError):
+            await call_tool("complete_task", {"project": "aaaaaaaaaaaaaaaaaaaaaaaa"})
 
 
 class TestDeleteTask:
