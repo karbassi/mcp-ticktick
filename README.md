@@ -154,7 +154,7 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `get_task` | Get a single task by ID |
 | `add_task` | Create a task with due date, priority, tags, checklist |
 | `edit_task` | Update task fields |
-| `complete_task` | Mark a task complete |
+| `complete_task` | Mark one task (`task_id`) or several (`task_ids`, batched 50 per request) complete |
 | `delete_task` | Delete a task |
 | `move_task` | Move a task between projects |
 | `set_subtask` | Make a task a subtask of another |
