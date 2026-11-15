@@ -134,6 +134,8 @@ Add to your VS Code `settings.json`:
 
 | Domain | Tools | Highlights |
 |---|---|---|
+| **Tasks** | 12 | Create, edit, complete, delete, move, subtasks, trash, search, filter |
+
 | **Tasks** | 12 | Create, edit, complete, delete, move, subtasks, trash |
 | **Projects** | 6 | CRUD with fuzzy name matching, members |
 
@@ -172,6 +174,8 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `set_subtask` | Make a task a subtask of another |
 | `unparent_task` | Remove a task from its parent |
 | `list_trash` | List deleted tasks |
+| `search_tasks` | Keyword search across all projects, server-side |
+| `filter_tasks` | Filter by project, dates, priority, tags, status, kind |
 
 ### Comments
 
