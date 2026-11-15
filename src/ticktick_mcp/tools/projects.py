@@ -9,6 +9,7 @@ from fastmcp.exceptions import ToolError
 from ticktick_mcp.client import TickTickClient
 from ticktick_mcp.models import Project
 from ticktick_mcp.resolve import resolve_name
+from ticktick_mcp.text import clean_project
 
 
 def _get_client(ctx: Context) -> TickTickClient:
@@ -47,15 +48,22 @@ def register(mcp: FastMCP) -> None:
             "openWorldHint": False,
         }
     )
-    async def list_projects(ctx: Context) -> list[dict[str, Any]]:
+    async def list_projects(ctx: Context, include_icons: bool = False) -> list[dict[str, Any]]:
         """List all projects (task lists) in TickTick.
 
         Returns all projects including their IDs, names, colors, and folder assignments.
         Does not include the Inbox — use "inbox" as the project name in task tools to
         interact with the default inbox.
+
+        Args:
+            include_icons: Keep the leading emoji icon in each project name.
+                By default the icon is stripped (e.g. "📖Study" -> "Study").
         """
         client = _get_client(ctx)
-        return await client.v1_get("/project")
+        projects = await client.v1_get("/project")
+        if include_icons:
+            return projects
+        return [clean_project(p) for p in projects]
 
     @mcp.tool(
         annotations={
@@ -68,6 +76,7 @@ def register(mcp: FastMCP) -> None:
     async def get_project(
         ctx: Context,
         project: str,
+        include_icons: bool = False,
     ) -> dict[str, Any]:
         """Get a single project by name or ID.
 
@@ -75,10 +84,13 @@ def register(mcp: FastMCP) -> None:
 
         Args:
             project: Project name or ID. Supports fuzzy matching.
+            include_icons: Keep the leading emoji icon in the project name.
+                By default the icon is stripped (e.g. "📖Study" -> "Study").
         """
         client = _get_client(ctx)
         pid = await _resolve_project_id(client, project)
-        return await client.v1_get(f"/project/{pid}")
+        result = await client.v1_get(f"/project/{pid}")
+        return result if include_icons else clean_project(result)
 
     @mcp.tool(
         annotations={
