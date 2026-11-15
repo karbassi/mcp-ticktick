@@ -12,6 +12,7 @@ from ticktick_mcp.models import Project
 from ticktick_mcp.resolve import resolve_name
 
 PRIORITY_MAP = {"none": 0, "low": 1, "medium": 3, "high": 5}
+COMPLETE_BATCH_SIZE = 50
 
 # Default reminders, matching TickTick's own connector: at the due time for timed
 # tasks, 9am on the day for all-day tasks.
@@ -341,19 +342,40 @@ def register(mcp: FastMCP) -> None:
     )
     async def complete_task(
         ctx: Context,
-        task_id: str,
         project: str,
+        task_id: str | None = None,
+        task_ids: list[str] | None = None,
     ) -> str:
-        """Mark a task as complete.
+        """Mark one or more tasks as complete.
+
+        Pass `task_id` for a single task, or `task_ids` for several. Several tasks are
+        completed with the batch endpoint in chunks of 50 instead of one request each.
 
         Args:
-            task_id: The task ID to complete.
-            project: The project name or ID containing the task.
+            project: The project name or ID containing the task(s).
+            task_id: A single task ID to complete.
+            task_ids: Several task IDs to complete (all in `project`).
         """
+        ids: list[str] = list(dict.fromkeys([*([task_id] if task_id else []), *(task_ids or [])]))
+        if not ids:
+            raise ToolError("Provide task_id or task_ids")
         client = _get_client(ctx)
         pid = await _resolve_project_id(client, project)
-        await client.v1_post_empty(f"/project/{pid}/task/{task_id}/complete")
-        return f"Task {task_id} completed"
+        if len(ids) == 1:
+            await client.v1_post_empty(f"/project/{pid}/task/{ids[0]}/complete")
+            return f"Task {ids[0]} completed"
+        done: set[str] = set()
+        for i in range(0, len(ids), COMPLETE_BATCH_SIZE):
+            chunk = ids[i : i + COMPLETE_BATCH_SIZE]
+            result = await client.v1_post(
+                "/task/completeTasks", {"projectId": pid, "taskIds": chunk}
+            )
+            done.update(result or [])
+        failed = [t for t in ids if t not in done]
+        msg = f"Completed {len(ids) - len(failed)} of {len(ids)} tasks"
+        if failed:
+            msg += f"; not completed: {', '.join(failed)}"
+        return msg
 
     @mcp.tool(
         annotations={
