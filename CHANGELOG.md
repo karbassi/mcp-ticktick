@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Countdowns
+
+- New `list_countdowns` tool using the official `GET /open/v1/countdown` (no v2 session needed). Read-only: `POST`, `PUT` and `DELETE` on `/open/v1/countdown` return 405, so there are no write tools.
+
 ### Reminders
 
 - `add_task` and `edit_task` take a `reminders` list of triggers (e.g. `TRIGGER:PT0S`, `TRIGGER:-PT15M`). On `add_task`, omitting it with a due or start date applies TickTick's own default: `TRIGGER:PT0S` for timed tasks, `TRIGGER:P0DT9H0M0S` (9am) for all-day tasks. `reminders=[]` means no reminder. `edit_task` only touches reminders when the param is passed. Before this, tasks made through the tool got no reminder, so TickTick never notified.
