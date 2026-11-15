@@ -14,12 +14,14 @@ def register_tools(mcp: FastMCP) -> None:
         folders,
         habits,
         projects,
+        search,
         tags,
         tasks,
     )
 
     tasks.register(mcp)
     projects.register(mcp)
+    search.register(mcp)
     tags.register(mcp)
     folders.register(mcp)
     habits.register(mcp)

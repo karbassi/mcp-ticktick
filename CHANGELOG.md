@@ -23,6 +23,7 @@
 - `move_task` uses `POST /open/v1/task/move` (same body as v2 `/batch/taskProject`). Verified live for project→project, inbox→project, and project→inbox; content, priority, and tags are kept. (#36)
 - Add optional shared HTTP transport: `TICKTICK_MCP_TRANSPORT=http` (with `TICKTICK_MCP_HOST`/`TICKTICK_MCP_PORT`, default `127.0.0.1:8502`) runs one server for many clients. Loopback-only, with Host/Origin (DNS-rebinding) protection always on. stdio stays the default.
 - Require FastMCP 4.1 (MCP SDK 2.3)
+- New `search_tasks` (`POST /open/v1/task/search`) and `filter_tasks` (`POST /open/v1/task/filter`): server-side keyword search and criteria filtering across all projects, instead of listing every project and scanning. Search matches whole words only. Filter takes projects, start/end date, priority, tags, status, and kind; the endpoint calls plain tasks `TASK`, which the tool maps from `text`. Verified live; unrelated to the saved-filter tools.
 
 ## 0.1.2 (2026-02-22)
 
