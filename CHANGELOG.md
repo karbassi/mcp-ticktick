@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Task comments
+
+- New `list_comments`, `add_comment`, and `delete_comment` tools using the official `GET /open/v1/project/{p}/task/{t}/comments`, `POST .../comment`, and `DELETE .../comment/{id}`. No v2 session needed. There is no `edit_comment`: the official API has no edit endpoint (`PUT`/`POST`/`PATCH` on `.../comment/{id}` return 405, verified live), so delete and re-add instead.
+
 ### Official API migration (#15)
 
 - `list_tags` and the `ticktick://tags` resource now use the official `GET /open/v1/tag` instead of v2 `GET /tags`, so they no longer need the v2 session token. Same tags, colors, and parents (verified live: 38 = 38). v1 omits `etag`, `rawName`, `sortOption`, and `timeline`, which nothing reads. (#16)
