@@ -143,10 +143,25 @@ class TickTickClient:
         resp.raise_for_status()
         return resp
 
-    async def v1_delete(self, endpoint: str) -> httpx.Response:
-        resp = await self.http.delete(f"{V1_BASE}{endpoint}", headers=self._v1_headers())
+    async def v1_put(self, endpoint: str, json_data: Any = None) -> Any:
+        resp = await self.http.put(
+            f"{V1_BASE}{endpoint}", headers=self._v1_headers(), json=json_data
+        )
         if resp.status_code == 401 and await self._try_refresh():
-            resp = await self.http.delete(f"{V1_BASE}{endpoint}", headers=self._v1_headers())
+            resp = await self.http.put(
+                f"{V1_BASE}{endpoint}", headers=self._v1_headers(), json=json_data
+            )
+        resp.raise_for_status()
+        return resp.json() if resp.content else None
+
+    async def v1_delete(self, endpoint: str, json_data: Any = None) -> httpx.Response:
+        resp = await self.http.request(
+            "DELETE", f"{V1_BASE}{endpoint}", headers=self._v1_headers(), json=json_data
+        )
+        if resp.status_code == 401 and await self._try_refresh():
+            resp = await self.http.request(
+                "DELETE", f"{V1_BASE}{endpoint}", headers=self._v1_headers(), json=json_data
+            )
         resp.raise_for_status()
         return resp
 

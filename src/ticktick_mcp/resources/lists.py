@@ -22,4 +22,4 @@ def register(mcp: FastMCP) -> None:
     async def tags(ctx: Context) -> str:
         """All tags with their names, colors, and hierarchical relationships."""
         client = _get_client(ctx)
-        return json.dumps(await client.v2_get("/tags"))
+        return json.dumps(await client.v1_get("/tag"))

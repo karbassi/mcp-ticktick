@@ -4,7 +4,8 @@ import httpx
 import pytest
 import respx
 
-from ticktick_mcp.client import V2_BASE, TickTickClient
+from tests.helpers import body, call_tool, result_data
+from ticktick_mcp.client import V1_BASE, V2_BASE, TickTickClient
 
 HABITS_RESPONSE = [
     {"id": "h1", "name": "Exercise", "etag": "e1", "type": "Boolean", "goal": 1, "status": 0},
@@ -114,12 +115,29 @@ class TestArchiveHabits:
 
 class TestManageSections:
     @pytest.mark.anyio
-    async def test_list_sections(self, client: TickTickClient, mock_api: respx.MockRouter):
-        mock_api.get(f"{V2_BASE}/habitSections").mock(
+    async def test_list_sections_uses_v1(self, env_vars, mock_api: respx.MockRouter):
+        v1 = mock_api.get(f"{V1_BASE}/habit/sections").mock(
             return_value=httpx.Response(200, json=SECTIONS_RESPONSE)
         )
-        result = await client.v2_get("/habitSections")
-        assert len(result) == 2
+        v2 = mock_api.get(f"{V2_BASE}/habitSections")
+        result = await call_tool("manage_habit_sections", {"action": "list"})
+        assert v1.called
+        assert not v2.called
+        assert [s["name"] for s in result_data(result)] == ["Morning", "Evening"]
+
+    @pytest.mark.anyio
+    async def test_rename_resolves_section_via_v1(self, env_vars, mock_api: respx.MockRouter):
+        mock_api.get(f"{V1_BASE}/habit/sections").mock(
+            return_value=httpx.Response(200, json=SECTIONS_RESPONSE)
+        )
+        write = mock_api.post(f"{V2_BASE}/habitSections/batch").mock(
+            return_value=httpx.Response(200, json={"id2etag": {}})
+        )
+        await call_tool(
+            "manage_habit_sections",
+            {"action": "rename", "section": "evening", "new_name": "Night"},
+        )
+        assert body(write) == {"update": [{"id": "s2", "name": "Night"}]}
 
     @pytest.mark.anyio
     async def test_add_section(self, client: TickTickClient, mock_api: respx.MockRouter):

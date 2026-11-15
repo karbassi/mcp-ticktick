@@ -15,8 +15,7 @@ def _get_client(ctx: Context) -> TickTickClient:
 
 async def _resolve_folder_id(client: TickTickClient, name_or_id: str) -> tuple[str, str]:
     """Resolve a folder name/ID to (id, etag)."""
-    data = await client.batch_check()
-    groups = [ProjectGroup(**g) for g in (data.get("projectGroups") or [])]
+    groups = [ProjectGroup(**g) for g in (await client.v1_get("/project/group") or [])]
     return resolve_name_with_etag(
         name_or_id,
         groups,
@@ -40,11 +39,10 @@ def register(mcp: FastMCP) -> None:
         """List all project folders (groups).
 
         Folders organize projects into groups. Returns folder IDs, names,
-        and sort settings. Requires v2 session token.
+        and sort settings.
         """
         client = _get_client(ctx)
-        data = await client.batch_check()
-        return data.get("projectGroups") or []
+        return await client.v1_get("/project/group") or []
 
     @mcp.tool(
         annotations={
@@ -64,10 +62,7 @@ def register(mcp: FastMCP) -> None:
             name: Folder name (required).
         """
         client = _get_client(ctx)
-        return await client.v2_post(
-            "/batch/projectGroup",
-            {"add": [{"name": name, "listType": "group"}]},
-        )
+        return await client.v1_post("/project/group", {"name": name})
 
     @mcp.tool(
         annotations={
@@ -93,7 +88,8 @@ def register(mcp: FastMCP) -> None:
         for f in folders:
             fid, _ = await _resolve_folder_id(client, f)
             ids.append(fid)
-        await client.v2_post("/batch/projectGroup", {"delete": ids})
+        for fid in ids:
+            await client.v1_delete(f"/project/group/{fid}")
         return f"Deleted {len(ids)} folder(s)"
 
     @mcp.tool(
@@ -116,8 +112,5 @@ def register(mcp: FastMCP) -> None:
             new_name: New folder name.
         """
         client = _get_client(ctx)
-        fid, etag = await _resolve_folder_id(client, folder)
-        return await client.v2_post(
-            "/batch/projectGroup",
-            {"update": [{"id": fid, "etag": etag, "name": new_name, "listType": "group"}]},
-        )
+        fid, _ = await _resolve_folder_id(client, folder)
+        return await client.v1_post(f"/project/group/{fid}", {"name": new_name})

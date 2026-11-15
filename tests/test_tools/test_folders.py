@@ -4,60 +4,57 @@ import httpx
 import pytest
 import respx
 
-from ticktick_mcp.client import V2_BASE, TickTickClient
+from tests.helpers import body, call_tool, result_data
+from ticktick_mcp.client import V1_BASE, V2_BASE
 
-BATCH_CHECK_RESPONSE = {
-    "projectGroups": [
-        {"id": "g1", "name": "Home", "etag": "e1", "sortOrder": 0},
-        {"id": "g2", "name": "Work", "etag": "e2", "sortOrder": 1},
-    ],
-    "filters": [],
-}
+GROUPS = [
+    {"id": "g1", "name": "Home", "sortOrder": 0, "showAll": True},
+    {"id": "g2", "name": "Work", "sortOrder": 1, "showAll": True},
+]
+
+
+@pytest.fixture
+def groups(mock_api: respx.MockRouter) -> respx.Route:
+    return mock_api.get(f"{V1_BASE}/project/group").mock(
+        return_value=httpx.Response(200, json=GROUPS)
+    )
 
 
 class TestListFolders:
     @pytest.mark.anyio
-    async def test_list(self, client: TickTickClient, mock_api: respx.MockRouter):
-        mock_api.get(f"{V2_BASE}/batch/check/0").mock(
-            return_value=httpx.Response(200, json=BATCH_CHECK_RESPONSE)
-        )
-        data = await client.batch_check()
-        groups = data.get("projectGroups", [])
-        assert len(groups) == 2
-        assert groups[0]["name"] == "Home"
+    async def test_list_uses_v1(self, env_vars, groups, mock_api: respx.MockRouter):
+        v2 = mock_api.get(f"{V2_BASE}/batch/check/0")
+        result = await call_tool("list_folders", {})
+        assert groups.called
+        assert not v2.called
+        assert [g["name"] for g in result_data(result)] == ["Home", "Work"]
 
 
 class TestAddFolder:
     @pytest.mark.anyio
-    async def test_add(self, client: TickTickClient, mock_api: respx.MockRouter):
-        mock_api.post(f"{V2_BASE}/batch/projectGroup").mock(
-            return_value=httpx.Response(200, json={"id2etag": {"g_new": "etag_new"}})
+    async def test_add(self, env_vars, mock_api: respx.MockRouter):
+        route = mock_api.post(f"{V1_BASE}/project/group").mock(
+            return_value=httpx.Response(200, json={"id": "g3", "name": "Errands"})
         )
-        result = await client.v2_post(
-            "/batch/projectGroup",
-            {"add": [{"name": "Errands", "listType": "group"}]},
-        )
-        assert "id2etag" in result
+        await call_tool("add_folder", {"name": "Errands"})
+        assert body(route) == {"name": "Errands"}
 
 
 class TestDeleteFolders:
     @pytest.mark.anyio
-    async def test_delete(self, client: TickTickClient, mock_api: respx.MockRouter):
-        mock_api.post(f"{V2_BASE}/batch/projectGroup").mock(
-            return_value=httpx.Response(200, json={"ok": True})
-        )
-        result = await client.v2_post("/batch/projectGroup", {"delete": ["g1"]})
-        assert result["ok"] is True
+    async def test_delete_resolves_names(self, env_vars, groups, mock_api: respx.MockRouter):
+        g1 = mock_api.delete(f"{V1_BASE}/project/group/g1").mock(return_value=httpx.Response(200))
+        g2 = mock_api.delete(f"{V1_BASE}/project/group/g2").mock(return_value=httpx.Response(200))
+        await call_tool("delete_folders", {"folders": ["home", "Work"]})
+        assert g1.called
+        assert g2.called
 
 
 class TestRenameFolder:
     @pytest.mark.anyio
-    async def test_rename(self, client: TickTickClient, mock_api: respx.MockRouter):
-        mock_api.post(f"{V2_BASE}/batch/projectGroup").mock(
-            return_value=httpx.Response(200, json={"id2etag": {"g1": "etag_new"}})
+    async def test_rename(self, env_vars, groups, mock_api: respx.MockRouter):
+        route = mock_api.post(f"{V1_BASE}/project/group/g2").mock(
+            return_value=httpx.Response(200, json={"id": "g2", "name": "Job"})
         )
-        result = await client.v2_post(
-            "/batch/projectGroup",
-            {"update": [{"id": "g1", "etag": "e1", "name": "Renamed", "listType": "group"}]},
-        )
-        assert "id2etag" in result
+        await call_tool("rename_folder", {"folder": "Work", "new_name": "Job"})
+        assert body(route) == {"name": "Job"}
