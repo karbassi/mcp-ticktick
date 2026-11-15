@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 from typing import Any
 
+import httpx
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 
@@ -388,6 +389,66 @@ def register(mcp: FastMCP) -> None:
             [{"taskId": task_id, "fromProjectId": from_pid, "toProjectId": to_pid}],
         )
         return f"Task {task_id} moved to {to_project}"
+
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        }
+    )
+    async def assign_task(
+        ctx: Context,
+        task_id: str,
+        project: str,
+        assignee: str,
+    ) -> dict[str, Any]:
+        """Assign a task to a member of its (shared) project.
+
+        Use list_project_members to find valid usernames. Only works in
+        projects shared with other people.
+
+        Args:
+            task_id: The task ID to assign.
+            project: The project name or ID containing the task.
+            assignee: Member username (from list_project_members).
+        """
+        client = _get_client(ctx)
+        pid = await _resolve_project_id(client, project)
+        try:
+            return await client.v1_post(
+                "/task/assign",
+                {"projectId": pid, "taskId": task_id, "assigneeUsername": assignee},
+            )
+        except httpx.HTTPStatusError as e:
+            raise ToolError(
+                f"Assign failed ({e.response.status_code}). The assignee must be a member "
+                "of a shared project; check list_project_members."
+            ) from e
+
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        }
+    )
+    async def unassign_task(
+        ctx: Context,
+        task_id: str,
+        project: str,
+    ) -> dict[str, Any]:
+        """Remove the assignee from a task.
+
+        Args:
+            task_id: The task ID to unassign.
+            project: The project name or ID containing the task.
+        """
+        client = _get_client(ctx)
+        pid = await _resolve_project_id(client, project)
+        return await client.v1_post("/task/unassign", {"projectId": pid, "taskId": task_id})
 
     @mcp.tool(
         annotations={

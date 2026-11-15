@@ -3,8 +3,9 @@ from __future__ import annotations
 import httpx
 import pytest
 import respx
+from fastmcp.exceptions import ToolError
 
-from tests.helpers import body, call_tool
+from tests.helpers import body, call_tool, result_data
 from ticktick_mcp.client import V1_BASE, V2_BASE, TickTickClient
 
 
@@ -108,3 +109,32 @@ class TestListTrash:
         )
         data = await client.v2_get("/project/all/trash/page")
         assert len(data["tasks"]) == 1
+
+
+class TestAssignTask:
+    @pytest.mark.anyio
+    async def test_assign(self, env_vars, mock_api: respx.MockRouter):
+        route = mock_api.post(f"{V1_BASE}/task/assign").mock(
+            return_value=httpx.Response(200, json={"id": "t1", "assigneeUsername": "bob"})
+        )
+        result = await call_tool(
+            "assign_task", {"task_id": "t1", "project": "inbox123", "assignee": "bob"}
+        )
+        assert body(route) == {"projectId": "inbox123", "taskId": "t1", "assigneeUsername": "bob"}
+        assert result_data(result)["id"] == "t1"
+
+    @pytest.mark.anyio
+    async def test_assign_error_is_tool_error(self, env_vars, mock_api: respx.MockRouter):
+        mock_api.post(f"{V1_BASE}/task/assign").mock(return_value=httpx.Response(500, json={}))
+        with pytest.raises(ToolError, match="shared project"):
+            await call_tool(
+                "assign_task", {"task_id": "t1", "project": "inbox123", "assignee": "x"}
+            )
+
+    @pytest.mark.anyio
+    async def test_unassign(self, env_vars, mock_api: respx.MockRouter):
+        route = mock_api.post(f"{V1_BASE}/task/unassign").mock(
+            return_value=httpx.Response(200, json={"id": "t1"})
+        )
+        await call_tool("unassign_task", {"task_id": "t1", "project": "inbox123"})
+        assert body(route) == {"projectId": "inbox123", "taskId": "t1"}

@@ -12,7 +12,7 @@
 A [Model Context Protocol](https://modelcontextprotocol.io/) server that gives LLMs full access to [TickTick](https://ticktick.com).<br>
 Tasks, projects, habits, focus timers, tags, filters, calendar — all of it.
 
-**45 tools** · **4 resources** · **Every TickTick feature**
+**48 tools** · **4 resources** · **Every TickTick feature**
 
 </div>
 
@@ -132,8 +132,8 @@ Add to your VS Code `settings.json`:
 
 | Domain | Tools | Highlights |
 |---|---|---|
-| **Tasks** | 10 | Create, edit, complete, delete, move, subtasks, trash |
-| **Projects** | 5 | CRUD with fuzzy name matching |
+| **Tasks** | 12 | Create, edit, complete, delete, move, subtasks, trash |
+| **Projects** | 6 | CRUD with fuzzy name matching, members |
 | **Tags** | 6 | Create, rename, merge, hierarchies |
 | **Folders** | 4 | Group projects into folders |
 | **Habits** | 8 | Track, check in, streaks, sections |
@@ -157,6 +157,8 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `complete_task` | Mark a task complete |
 | `delete_task` | Delete a task |
 | `move_task` | Move a task between projects |
+| `assign_task` | Assign a task to a member of a shared project |
+| `unassign_task` | Remove a task's assignee |
 | `set_subtask` | Make a task a subtask of another |
 | `unparent_task` | Remove a task from its parent |
 | `list_trash` | List deleted tasks |
@@ -170,6 +172,7 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `add_project` | Create a new project |
 | `edit_project` | Update project properties |
 | `delete_project` | Delete a project and its tasks |
+| `list_project_members` | List a project's members (usernames for `assign_task`) |
 
 ### Tags
 

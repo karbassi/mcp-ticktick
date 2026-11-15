@@ -21,6 +21,7 @@
 - `focus_stats`, `focus_timeline`, and `focus_status` stay on v2: there is no official endpoint.
 - `manage_habit_sections(action="list")` and section name resolution use `GET /open/v1/habit/sections`. Live output is identical to v2. Adding, renaming, and deleting sections stay on v2: there is no official write endpoint. (#28)
 - `move_task` uses `POST /open/v1/task/move` (same body as v2 `/batch/taskProject`). Verified live for project→project, inbox→project, and project→inbox; content, priority, and tags are kept. (#36)
+- New `list_project_members` (`GET /open/v1/project/{id}/members`), `assign_task` (`POST /open/v1/task/assign`) and `unassign_task` (`POST /open/v1/task/unassign`). Members verified live; assign is mock-only because it needs a project shared with another person (a bad username returns a bare 500, surfaced as a tool error).
 - Add optional shared HTTP transport: `TICKTICK_MCP_TRANSPORT=http` (with `TICKTICK_MCP_HOST`/`TICKTICK_MCP_PORT`, default `127.0.0.1:8502`) runs one server for many clients. Loopback-only, with Host/Origin (DNS-rebinding) protection always on. stdio stays the default.
 - Require FastMCP 4.1 (MCP SDK 2.3)
 
