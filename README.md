@@ -12,6 +12,8 @@
 A [Model Context Protocol](https://modelcontextprotocol.io/) server that gives LLMs full access to [TickTick](https://ticktick.com).<br>
 Tasks, projects, habits, focus timers, tags, filters, calendar — all of it.
 
+**46 tools** · **4 resources** · **Every TickTick feature**
+
 **48 tools** · **4 resources** · **Every TickTick feature**
 
 </div>
@@ -134,6 +136,10 @@ Add to your VS Code `settings.json`:
 |---|---|---|
 | **Tasks** | 12 | Create, edit, complete, delete, move, subtasks, trash |
 | **Projects** | 6 | CRUD with fuzzy name matching, members |
+
+| **Tasks** | 10 | Create, edit, complete, delete, move, subtasks, trash |
+| **Comments** | 3 | List, add, and delete task comments |
+| **Projects** | 5 | CRUD with fuzzy name matching |
 | **Tags** | 6 | Create, rename, merge, hierarchies |
 | **Folders** | 4 | Group projects into folders |
 | **Habits** | 8 | Track, check in, streaks, sections |
@@ -154,6 +160,10 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `get_task` | Get a single task by ID |
 | `add_task` | Create a task with due date, priority, tags, checklist |
 | `edit_task` | Update task fields |
+| `complete_task` | Mark one task (`task_id`) or several (`task_ids`, batched 50 per request) complete |
+
+| `add_task` | Create a task with due date, priority, tags, checklist, reminders (defaults to a reminder when dated) |
+| `edit_task` | Update task fields, including reminders |
 | `complete_task` | Mark a task complete |
 | `delete_task` | Delete a task |
 | `move_task` | Move a task between projects |
@@ -162,6 +172,14 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `set_subtask` | Make a task a subtask of another |
 | `unparent_task` | Remove a task from its parent |
 | `list_trash` | List deleted tasks |
+
+### Comments
+
+| Tool | Description |
+|---|---|
+| `list_comments` | List the comments on a task |
+| `add_comment` | Add a comment to a task |
+| `delete_comment` | Delete a comment from a task |
 
 ### Projects
 
@@ -234,6 +252,12 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `list_events` | Query events for a date range |
 | `sync_account` | Full account sync |
 
+### Countdowns
+
+| Tool | Description |
+|---|---|
+| `list_countdowns` | List countdowns (read-only; the official API has no writes) |
+
 </details>
 
 ## Shared HTTP server
@@ -270,7 +294,7 @@ You need a TickTick [OAuth app](https://developer.ticktick.com/manage) (free to 
 | `TICKTICK_REFRESH_TOKEN` | No | OAuth refresh token |
 | `TICKTICK_V2_SESSION_TOKEN` | No | Browser `t` cookie for v2 features |
 
-> **v1 vs v2:** The access token (official API) covers tasks (including moving them), projects, tags, folders, habit section listing, and focus logging/saving. Everything else needs a v2 session token: tag merge, filters, habits, focus stats/timeline/timer, calendar, trash, subtasks, and completed tasks. Grab the `t` cookie from your browser while logged into ticktick.com.
+> **v1 vs v2:** The access token (official API) covers tasks (including moving them and their comments), projects, tags, folders, habit section listing, and focus logging/saving. Everything else needs a v2 session token: tag merge, filters, habits, focus stats/timeline/timer, calendar, trash, subtasks, and completed tasks. Grab the `t` cookie from your browser while logged into ticktick.com.
 
 ## Development
 
