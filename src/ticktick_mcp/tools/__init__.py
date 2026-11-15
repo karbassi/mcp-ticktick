@@ -10,17 +10,22 @@ def register_tools(mcp: FastMCP) -> None:
     from ticktick_mcp.tools import (
         calendar,
         columns,
+        comments,
+        countdowns,
         filters,
         focus,
         folders,
         habits,
         projects,
+        search,
         tags,
         tasks,
     )
 
     tasks.register(mcp)
+    comments.register(mcp)
     projects.register(mcp)
+    search.register(mcp)
     tags.register(mcp)
     folders.register(mcp)
     habits.register(mcp)
@@ -28,3 +33,4 @@ def register_tools(mcp: FastMCP) -> None:
     focus.register(mcp)
     calendar.register(mcp)
     columns.register(mcp)
+    countdowns.register(mcp)

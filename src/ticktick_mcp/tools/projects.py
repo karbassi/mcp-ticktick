@@ -82,6 +82,31 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool(
         annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        }
+    )
+    async def list_project_members(
+        ctx: Context,
+        project: str,
+    ) -> list[dict[str, Any]]:
+        """List the members of a project.
+
+        Returns username, displayName, and self (true for you). A project
+        that is not shared lists only you. Use a member's username with
+        assign_task.
+
+        Args:
+            project: Project name or ID. Supports fuzzy matching.
+        """
+        client = _get_client(ctx)
+        pid = await _resolve_project_id(client, project)
+        return await client.v1_get(f"/project/{pid}/members")
+
+    @mcp.tool(
+        annotations={
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": False,

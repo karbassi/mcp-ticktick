@@ -4,6 +4,7 @@ import httpx
 import pytest
 import respx
 
+from tests.helpers import call_tool, result_data
 from ticktick_mcp.client import V1_BASE, TickTickClient
 
 
@@ -72,3 +73,15 @@ class TestInboxDiscovery:
         inbox_id = task["projectId"]
         assert inbox_id == "inbox123"
         await client.v1_delete(f"/project/{inbox_id}/task/{task['id']}")
+
+
+class TestListProjectMembers:
+    @pytest.mark.anyio
+    async def test_members(self, env_vars, mock_api: respx.MockRouter):
+        mock_api.get(f"{V1_BASE}/project/inbox123/members").mock(
+            return_value=httpx.Response(
+                200, json=[{"username": "a@b.c", "displayName": "A", "self": True}]
+            )
+        )
+        result = await call_tool("list_project_members", {"project": "inbox123"})
+        assert result_data(result)[0]["username"] == "a@b.c"
