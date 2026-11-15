@@ -153,8 +153,8 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 |---|---|
 | `list_tasks` | List tasks from a project or all projects |
 | `get_task` | Get a single task by ID |
-| `add_task` | Create a task with due date, priority, tags, checklist |
-| `edit_task` | Update task fields |
+| `add_task` | Create a task with due date, priority, tags, checklist, reminders (defaults to a reminder when dated) |
+| `edit_task` | Update task fields, including reminders |
 | `complete_task` | Mark a task complete |
 | `delete_task` | Delete a task |
 | `move_task` | Move a task between projects |

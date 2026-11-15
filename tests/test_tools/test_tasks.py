@@ -43,6 +43,81 @@ class TestAddTask:
         assert result["title"] == "Buy milk"
 
 
+class TestTaskReminders:
+    @pytest.fixture
+    def post_task(self, mock_api: respx.MockRouter):
+        return mock_api.post(f"{V1_BASE}/task").mock(
+            return_value=httpx.Response(200, json={"id": "t1", "title": "x"})
+        )
+
+    @pytest.mark.anyio
+    async def test_timed_task_defaults_to_at_due_time(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "due": "2027-03-01T10:00"})
+        assert body(post_task)["reminders"] == ["TRIGGER:PT0S"]
+
+    @pytest.mark.anyio
+    async def test_all_day_task_defaults_to_9am(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "due": "2027-03-01"})
+        assert body(post_task)["reminders"] == ["TRIGGER:P0DT9H0M0S"]
+
+    @pytest.mark.anyio
+    async def test_start_only_task_gets_default(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "start": "2027-03-01T10:00"})
+        assert body(post_task)["reminders"] == ["TRIGGER:PT0S"]
+
+    @pytest.mark.anyio
+    async def test_all_day_flag_overrides_default(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "due": "2027-03-01", "all_day": False})
+        assert body(post_task)["reminders"] == ["TRIGGER:PT0S"]
+
+    @pytest.mark.anyio
+    async def test_no_date_means_no_default(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x"})
+        assert "reminders" not in body(post_task)
+
+    @pytest.mark.anyio
+    async def test_explicit_reminders_win(self, env_vars, post_task):
+        await call_tool(
+            "add_task", {"title": "x", "due": "2027-03-01T10:00", "reminders": ["TRIGGER:-PT15M"]}
+        )
+        assert body(post_task)["reminders"] == ["TRIGGER:-PT15M"]
+
+    @pytest.mark.anyio
+    async def test_empty_list_means_no_reminder(self, env_vars, post_task):
+        await call_tool("add_task", {"title": "x", "due": "2027-03-01T10:00", "reminders": []})
+        assert body(post_task)["reminders"] == []
+
+    @pytest.mark.anyio
+    async def test_edit_sends_reminders_only_when_passed(self, env_vars, mock_api):
+        mock_api.get(f"{V1_BASE}/project").mock(
+            return_value=httpx.Response(200, json=[{"id": "p1", "name": "Work"}])
+        )
+        route = mock_api.post(f"{V1_BASE}/task/t1").mock(
+            return_value=httpx.Response(200, json={"id": "t1"})
+        )
+        await call_tool("edit_task", {"task_id": "t1", "project": "Work", "title": "y"})
+        await call_tool("edit_task", {"task_id": "t1", "project": "Work", "reminders": []})
+        await call_tool(
+            "edit_task", {"task_id": "t1", "project": "Work", "reminders": ["TRIGGER:PT0S"]}
+        )
+        assert "reminders" not in body(route, 0)
+        assert body(route, 1)["reminders"] == []
+        assert body(route, 2)["reminders"] == ["TRIGGER:PT0S"]
+
+    @pytest.mark.anyio
+    async def test_edit_with_date_does_not_add_default(self, env_vars, mock_api):
+        mock_api.get(f"{V1_BASE}/project").mock(
+            return_value=httpx.Response(200, json=[{"id": "p1", "name": "Work"}])
+        )
+        route = mock_api.post(f"{V1_BASE}/task/t1").mock(
+            return_value=httpx.Response(200, json={"id": "t1"})
+        )
+        await call_tool(
+            "edit_task", {"task_id": "t1", "project": "Work", "due": "2027-03-01T10:00"}
+        )
+        assert "reminders" not in body(route)
+
+
 class TestCompleteTask:
     @pytest.mark.anyio
     async def test_complete(self, client: TickTickClient, mock_api: respx.MockRouter):
