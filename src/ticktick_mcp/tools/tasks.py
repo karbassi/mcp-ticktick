@@ -13,6 +13,11 @@ from ticktick_mcp.resolve import resolve_name
 
 PRIORITY_MAP = {"none": 0, "low": 1, "medium": 3, "high": 5}
 
+# Default reminders, matching TickTick's own connector: at the due time for timed
+# tasks, 9am on the day for all-day tasks.
+DEFAULT_TIMED_REMINDER = "TRIGGER:PT0S"
+DEFAULT_ALL_DAY_REMINDER = "TRIGGER:P0DT9H0M0S"
+
 
 def _get_client(ctx: Context) -> TickTickClient:
     return ctx.request_context.lifespan_context["client"]  # type: ignore[union-attr]
@@ -153,6 +158,7 @@ def register(mcp: FastMCP) -> None:
         items: list[str] | None = None,
         all_day: bool | None = None,
         timezone: str | None = None,
+        reminders: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create a new task in TickTick.
 
@@ -169,6 +175,10 @@ def register(mcp: FastMCP) -> None:
             items: List of checklist item titles.
             all_day: Whether this is an all-day task. Auto-detected from date format.
             timezone: IANA timezone name (e.g. "America/Chicago"). Defaults to system timezone.
+            reminders: Reminder triggers, e.g. ["TRIGGER:PT0S"] (at due time) or
+                ["TRIGGER:-PT15M"] (15 min before). Omit to get the default when the task
+                has a date: at the due time for timed tasks, 9am for all-day tasks. Pass
+                [] for no reminder.
         """
         client = _get_client(ctx)
         body: dict[str, Any] = {"title": title}
@@ -228,6 +238,13 @@ def register(mcp: FastMCP) -> None:
         if timezone:
             body["timeZone"] = timezone
 
+        if reminders is not None:
+            body["reminders"] = reminders
+        elif due or start:
+            body["reminders"] = [
+                DEFAULT_ALL_DAY_REMINDER if body.get("isAllDay") else DEFAULT_TIMED_REMINDER
+            ]
+
         return await client.v1_post("/task", body)
 
     @mcp.tool(
@@ -252,6 +269,7 @@ def register(mcp: FastMCP) -> None:
         clear_due: bool = False,
         clear_start: bool = False,
         timezone: str | None = None,
+        reminders: list[str] | None = None,
     ) -> dict[str, Any]:
         """Update an existing task.
 
@@ -270,6 +288,8 @@ def register(mcp: FastMCP) -> None:
             clear_due: Set to true to remove the due date.
             clear_start: Set to true to remove the start date.
             timezone: IANA timezone for date interpretation.
+            reminders: Replace all reminders with these triggers, e.g. ["TRIGGER:PT0S"].
+                Pass [] to remove all reminders. Omit to leave reminders unchanged.
         """
         client = _get_client(ctx)
         pid = await _resolve_project_id(client, project)
@@ -305,6 +325,9 @@ def register(mcp: FastMCP) -> None:
 
         if timezone:
             body["timeZone"] = timezone
+
+        if reminders is not None:
+            body["reminders"] = reminders
 
         return await client.v1_post(f"/task/{task_id}", body)
 

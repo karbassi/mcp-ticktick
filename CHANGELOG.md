@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Reminders
+
+- `add_task` and `edit_task` take a `reminders` list of triggers (e.g. `TRIGGER:PT0S`, `TRIGGER:-PT15M`). On `add_task`, omitting it with a due or start date applies TickTick's own default: `TRIGGER:PT0S` for timed tasks, `TRIGGER:P0DT9H0M0S` (9am) for all-day tasks. `reminders=[]` means no reminder. `edit_task` only touches reminders when the param is passed. Before this, tasks made through the tool got no reminder, so TickTick never notified.
+
 ### Official API migration (#15)
 
 - `list_tags` and the `ticktick://tags` resource now use the official `GET /open/v1/tag` instead of v2 `GET /tags`, so they no longer need the v2 session token. Same tags, colors, and parents (verified live: 38 = 38). v1 omits `etag`, `rawName`, `sortOption`, and `timeline`, which nothing reads. (#16)
