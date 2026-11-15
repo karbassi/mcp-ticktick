@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 def register_tools(mcp: FastMCP) -> None:
     from ticktick_mcp.tools import (
         calendar,
+        comments,
         filters,
         focus,
         folders,
@@ -19,6 +20,7 @@ def register_tools(mcp: FastMCP) -> None:
     )
 
     tasks.register(mcp)
+    comments.register(mcp)
     projects.register(mcp)
     tags.register(mcp)
     folders.register(mcp)

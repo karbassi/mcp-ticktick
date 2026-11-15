@@ -12,7 +12,7 @@
 A [Model Context Protocol](https://modelcontextprotocol.io/) server that gives LLMs full access to [TickTick](https://ticktick.com).<br>
 Tasks, projects, habits, focus timers, tags, filters, calendar — all of it.
 
-**45 tools** · **4 resources** · **Every TickTick feature**
+**48 tools** · **4 resources** · **Every TickTick feature**
 
 </div>
 
@@ -133,6 +133,7 @@ Add to your VS Code `settings.json`:
 | Domain | Tools | Highlights |
 |---|---|---|
 | **Tasks** | 10 | Create, edit, complete, delete, move, subtasks, trash |
+| **Comments** | 3 | List, add, and delete task comments |
 | **Projects** | 5 | CRUD with fuzzy name matching |
 | **Tags** | 6 | Create, rename, merge, hierarchies |
 | **Folders** | 4 | Group projects into folders |
@@ -160,6 +161,14 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `set_subtask` | Make a task a subtask of another |
 | `unparent_task` | Remove a task from its parent |
 | `list_trash` | List deleted tasks |
+
+### Comments
+
+| Tool | Description |
+|---|---|
+| `list_comments` | List the comments on a task |
+| `add_comment` | Add a comment to a task |
+| `delete_comment` | Delete a comment from a task |
 
 ### Projects
 
@@ -267,7 +276,7 @@ You need a TickTick [OAuth app](https://developer.ticktick.com/manage) (free to 
 | `TICKTICK_REFRESH_TOKEN` | No | OAuth refresh token |
 | `TICKTICK_V2_SESSION_TOKEN` | No | Browser `t` cookie for v2 features |
 
-> **v1 vs v2:** The access token (official API) covers tasks (including moving them), projects, tags, folders, habit section listing, and focus logging/saving. Everything else needs a v2 session token: tag merge, filters, habits, focus stats/timeline/timer, calendar, trash, subtasks, and completed tasks. Grab the `t` cookie from your browser while logged into ticktick.com.
+> **v1 vs v2:** The access token (official API) covers tasks (including moving them and their comments), projects, tags, folders, habit section listing, and focus logging/saving. Everything else needs a v2 session token: tag merge, filters, habits, focus stats/timeline/timer, calendar, trash, subtasks, and completed tasks. Grab the `t` cookie from your browser while logged into ticktick.com.
 
 ## Development
 
