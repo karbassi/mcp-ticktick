@@ -12,7 +12,7 @@
 A [Model Context Protocol](https://modelcontextprotocol.io/) server that gives LLMs full access to [TickTick](https://ticktick.com).<br>
 Tasks, projects, habits, focus timers, tags, filters, calendar — all of it.
 
-**45 tools** · **4 resources** · **Every TickTick feature**
+**48 tools** · **4 resources** · **Every TickTick feature**
 
 </div>
 
@@ -136,6 +136,7 @@ Add to your VS Code `settings.json`:
 | **Projects** | 5 | CRUD with fuzzy name matching |
 | **Tags** | 6 | Create, rename, merge, hierarchies |
 | **Folders** | 4 | Group projects into folders |
+| **Columns** | 3 | Kanban columns, and put tasks in them |
 | **Habits** | 8 | Track, check in, streaks, sections |
 | **Filters** | 4 | Saved custom filters |
 | **Focus** | 5 | Pomodoro records, stats, session history |
@@ -152,8 +153,8 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 |---|---|
 | `list_tasks` | List tasks from a project or all projects |
 | `get_task` | Get a single task by ID |
-| `add_task` | Create a task with due date, priority, tags, checklist |
-| `edit_task` | Update task fields |
+| `add_task` | Create a task with due date, priority, tags, checklist, kanban column |
+| `edit_task` | Update task fields, or move it to a kanban column |
 | `complete_task` | Mark a task complete |
 | `delete_task` | Delete a task |
 | `move_task` | Move a task between projects |
@@ -190,6 +191,14 @@ Plus 4 read-only **resources**: `ticktick://profile` · `ticktick://settings` ·
 | `add_folder` | Create a folder |
 | `delete_folders` | Delete folders |
 | `rename_folder` | Rename a folder |
+
+### Columns
+
+| Tool | Description |
+|---|---|
+| `list_columns` | List a project's kanban columns |
+| `add_column` | Create a kanban column |
+| `edit_column` | Rename, reorder, or recolor a column (the official API has no delete) |
 
 ### Habits
 

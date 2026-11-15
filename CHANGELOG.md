@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Kanban columns
+
+- New `list_columns`, `add_column`, and `edit_column` using `GET`/`POST /open/v1/project/{id}/column` and `POST /open/v1/project/{id}/column/{columnId}`. Columns resolve by name. There is no `delete_column`: the official API returns 405 for `DELETE` on a column (verified live).
+- `add_task` and `edit_task` take an optional `column` (name or ID) that sets the task's `columnId`.
+
 ### Official API migration (#15)
 
 - `list_tags` and the `ticktick://tags` resource now use the official `GET /open/v1/tag` instead of v2 `GET /tags`, so they no longer need the v2 session token. Same tags, colors, and parents (verified live: 38 = 38). v1 omits `etag`, `rawName`, `sortOption`, and `timeline`, which nothing reads. (#16)
