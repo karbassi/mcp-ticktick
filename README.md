@@ -12,11 +12,14 @@
 A [Model Context Protocol](https://modelcontextprotocol.io/) server that gives LLMs full access to [TickTick](https://ticktick.com).<br>
 Tasks, projects, habits, focus timers, tags, filters, calendar — all of it.
 
-**46 tools** · **4 resources** · **Every TickTick feature**
-
 **48 tools** · **4 resources** · **Every TickTick feature**
 
 </div>
+
+> [!IMPORTANT]
+> **This server is superseded by [`ticktick-cli mcp`](https://github.com/karbassi/ticktick-cli).** It's a drop-in replacement, a single Rust binary with the same tool names and parameters, and it adds no Python runtime. Install it with `brew install karbassi/tap/ticktick-cli`, then run `ticktick-cli mcp` (stdio) or `ticktick-cli mcp --http` (streamable HTTP on `127.0.0.1:8502/mcp`). It reads the same `TICKTICK_*` environment variables.
+>
+> Known bug here, fixed there: `edit_habit`, `archive_habits` and `edit_filter` send a partial record, and TickTick's v2 batch update replaces the whole record, so the fields you didn't pass (a habit's name, color or goal, a filter's rule) get wiped.
 
 ---
 
